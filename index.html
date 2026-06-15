@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal RH</title>
+    <link rel="stylesheet" href="assets/css/shell.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+
+    <div id="app">
+        <nav id="sidebar">
+            <ul>
+                <li><a href="#" onclick="router.navigate('dashboard')">Dashboard</a></li>
+                </ul>
+        </nav>
+        
+        <main id="content">
+            <h1>Bem-vindo</h1>
+        </main>
+
+        <button id="btn-close" style="display:none;" onclick="router.goBack()">Voltar ao Início</button>
+    </div>
+
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+/* assets/css/shell.css */
+#sidebar {
+    transition: all 0.3s ease;
+    width: 250px;
+}
+
+#sidebar.active {
+    display: block;
+}
+
+/* Quando oculto, o main ocupa 100% da largura */
+main {
+    transition: margin-left 0.3s ease;
+}

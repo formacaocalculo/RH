@@ -1,0 +1,28 @@
+/* assets/css/shell.css */
+
+#app {
+    display: flex;
+    min-height: 100vh;
+}
+
+#sidebar {
+    width: 250px;
+    background: #f4f4f4; /* Adiciona uma cor para distinguir */
+    transition: margin-left 0.3s ease;
+    margin-left: 0;
+}
+
+/* Esta classe será a que o JavaScript remove */
+#sidebar.hidden {
+    margin-left: -250px; 
+}
+
+#content {
+    flex-grow: 1;
+    transition: margin-left 0.3s ease;
+    padding: 20px;
+}
+
+#sidebar.hidden {
+    margin-left: -250px; /* Ou display: none, se não quiseres efeito de deslize */
+}
