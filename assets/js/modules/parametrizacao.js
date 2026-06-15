@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/
 
 export function render() {
     return `
-    <div class="portal-container" style="display: flex; min-height: 100vh; background-color: #f4f6f9;">
+    <div class="portal-container" style="display: flex; min-height: 100vh; background-color: #f4f6f9; font-family: sans-serif;">
         <aside class="sidebar" style="width: 260px; background-color: #1a233a; color: #fff; padding: 20px;">
             <div class="logo-section" style="display: flex; align-items: center; margin-bottom: 30px;">
                 <div style="background-color: #3b82f6; padding: 8px; border-radius: 8px; margin-right: 10px;">🏢</div>
@@ -18,7 +18,7 @@ export function render() {
                 <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">📊 Dashboard</button>
                 
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Configurações</p>
-                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background-color: #3b82f6; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px;">⚙️ Parametrização</button>
+                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background-color: #3b82f6; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px; font-weight: bold;">⚙️ Parametrização</button>
             </nav>
         </aside>
 
@@ -35,36 +35,36 @@ export function render() {
                     
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Nome da Empresa</label>
-                        <input type="text" id="empresa-nome" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                        <input type="text" id="empresa-nome" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
                     
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Morada da Empresa</label>
-                        <input type="text" id="empresa-morada" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                        <input type="text" id="empresa-morada" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
                     
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">NIF da Empresa</label>
-                        <input type="text" id="empresa-nif" maxlength="9" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                        <input type="text" id="empresa-nif" maxlength="9" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
                 </div>
 
-                <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
                     <h4 style="margin: 0 0 20px 0; color: #1a233a; border-bottom: 2px solid #f59e0b; padding-bottom: 8px;">📅 Calendário e Dias Santos</h4>
                     
-                    <div style="margin-bottom: 15px;">
+                    <div style="margin-bottom: 20px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Ano Corrente do Calendário</label>
-                        <input type="number" id="cal-ano" value="2026" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;">
+                        <input type="number" id="cal-ano" value="2026" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
 
-                    <div style="margin-bottom: 15px;">
-                        <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Feriados Nacionais e Dias Santos (Separados por vírgula)</label>
-                        <textarea id="cal-feriados-nacionais" rows="4" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit;" placeholder="A calcular..."></textarea>
-                    </div>
+                    <label style="display:block; margin-bottom:10px; font-weight:500; color:#475569;">Feriados Nacionais (Um por linha):</label>
+                    
+                    <div id="lista-feriados-linhas" style="max-height: 320px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background-color: #f8fafc; margin-bottom: 15px;">
+                        </div>
 
-                    <div style="margin-bottom: 15px;">
+                    <div style="margin-top: auto;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Feriados Locais (Município)</label>
-                        <input type="text" id="cal-feriados-locais" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px;" placeholder="Ex: 24/06 (São João)">
+                        <input type="text" id="cal-feriados-locais" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;" placeholder="Ex: 24/06 (São João)">
                     </div>
                 </div>
             </div>
@@ -77,7 +77,6 @@ export function render() {
     `;
 }
 
-// --- FUNÇÃO PARA CALCULAR FERIADOS AUTOMATICAMENTE ---
 function calcularFeriadosPortugal(ano) {
     const a = ano % 19;
     const b = Math.floor(ano / 100);
@@ -107,33 +106,49 @@ function calcularFeriadosPortugal(ano) {
 
     const fmt = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
 
-    const feriados = [
-        `01/01 (Ano Novo)`,
-        `${fmt(carnaval)} (Carnaval)`,
-        `${fmt(sextaSanta)} (Sexta-feira Santa)`,
-        `${fmt(pascoa)} (Páscoa)`,
-        `25/04 (Dia da Liberdade)`,
-        `01/05 (Dia do Trabalhador)`,
-        `${fmt(corpoDeDeus)} (Corpo de Deus)`,
-        `10/06 (Dia de Portugal)`,
-        `15/08 (Assunção de N. Sra.)`,
-        `05/10 (Implantação da República)`,
-        `01/11 (Todos os Santos)`,
-        `01/12 (Restauração da Independência)`,
-        `08/12 (Imaculada Conceição)`,
-        `25/12 (Natal)`
+    return [
+        { data: "01/01", nome: "Ano Novo" },
+        { data: fmt(carnaval), nome: "Carnaval" },
+        { data: fmt(sextaSanta), nome: "Sexta-feira Santa" },
+        { data: fmt(pascoa), nome: "Páscoa" },
+        { data: "25/04", nome: "Dia da Liberdade" },
+        { data: "01/05", nome: "Dia do Trabalhador" },
+        { data: fmt(corpoDeDeus), nome: "Corpo de Deus" },
+        { data: "10/06", nome: "Dia de Portugal" },
+        { data: "15/08", nome: "Assunção de N. Sra." },
+        { data: "05/10", nome: "Implantação da República" },
+        { data: "01/11", nome: "Todos os Santos" },
+        { data: "01/12", nome: "Restauração da Independência" },
+        { data: "08/12", nome: "Imaculada Conceição" },
+        { data: "25/12", nome: "Natal" }
     ];
-
-    return feriados.join(', ');
 }
 
-// --- APENAS UMA FUNÇÃO INIT ---
+// Renderiza estritamente os blocos visuais linha por linha
+function atualizarInterfaceFeriados(lista) {
+    const container = document.getElementById('lista-feriados-linhas');
+    if (!container) return;
+
+    container.innerHTML = "";
+    lista.forEach(f => {
+        container.innerHTML += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; margin-bottom: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px;">
+                <span style="font-weight: bold; color: #3b82f6; background-color: #eff6ff; padding: 2px 8px; border-radius: 4px; font-family: monospace;">${f.data}</span>
+                <span style="font-weight: 500; color: #1e293b; flex: 1; margin-left: 15px; text-align: left;">${f.nome}</span>
+                <span style="color: #10b981; font-size: 10px; font-weight: bold; text-transform: uppercase; background-color: #ecfdf5; padding: 2px 6px; border-radius: 4px;">Nacional</span>
+            </div>
+        `;
+    });
+}
+
 export async function init() {
     const docRef = doc(db, "configuracoes", "empresa_base");
     const inputAno = document.getElementById('cal-ano');
-    const txtFeriados = document.getElementById('cal-feriados-nacionais');
+    
+    // Força sempre o cálculo limpo inicial baseado no ano para evitar misturas antigas
+    let anoAtual = parseInt(inputAno.value) || 2026;
+    let feriadosTratados = calcularFeriadosPortugal(anoAtual);
 
-    // 1. Tenta carregar do Firebase
     try {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -141,28 +156,30 @@ export async function init() {
             document.getElementById('empresa-nome').value = dados.nome || '';
             document.getElementById('empresa-morada').value = dados.morada || '';
             document.getElementById('empresa-nif').value = dados.nif || '';
-            inputAno.value = dados.ano || '2026';
             
-            // Se já houver feriados gravados, usa esses. Se não, calcula automáticos
-            txtFeriados.value = dados.feriadosNacionais || calcularFeriadosPortugal(parseInt(inputAno.value));
+            if (dados.ano) {
+                inputAno.value = dados.ano;
+                anoAtual = parseInt(dados.ano);
+                // Recalcula o array do ano guardado para estruturar em linhas
+                feriadosTratados = calcularFeriadosPortugal(anoAtual);
+            }
             document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
-        } else {
-            // Se for a primeira vez e o documento não existir, calcula na hora
-            txtFeriados.value = calcularFeriadosPortugal(parseInt(inputAno.value));
         }
     } catch (error) {
-        console.error("Erro ao carregar parametrização:", error);
-        // Em caso de erro na rede, calcula localmente para não ficar em branco
-        txtFeriados.value = calcularFeriadosPortugal(parseInt(inputAno.value));
+        console.error("Erro ao carregar do Firebase:", error);
     }
 
-    // 2. Ouvinte para quando o utilizador alterar o ano na caixa de input
+    // Desenha as linhas no ecrã
+    atualizarInterfaceFeriados(feriadosTratados);
+
+    // Se mudar o ano no input, reconstrói as linhas do zero imediatamente
     inputAno.addEventListener('change', () => {
-        const anoSelecionado = parseInt(inputAno.value) || 2026;
-        txtFeriados.value = calcularFeriadosPortugal(anoSelecionado);
+        anoAtual = parseInt(inputAno.value) || 2026;
+        feriadosTratados = calcularFeriadosPortugal(anoAtual);
+        atualizarInterfaceFeriados(feriadosTratados);
     });
 
-    // 3. Evento para Salvar dados no Firebase
+    // Evento de salvamento
     document.getElementById('btn-salvar-param').addEventListener('click', async () => {
         const btn = document.getElementById('btn-salvar-param');
         btn.innerText = "A guardar...";
@@ -173,13 +190,12 @@ export async function init() {
             morada: document.getElementById('empresa-morada').value,
             nif: document.getElementById('empresa-nif').value,
             ano: inputAno.value,
-            feriadosNacionais: txtFeriados.value,
             feriadosLocais: document.getElementById('cal-feriados-locais').value
         };
 
         try {
             await setDoc(docRef, dadosParaSalvar);
-            alert("Parâmetros guardados com sucesso no Firebase!");
+            alert("Parâmetros atualizados com sucesso!");
         } catch (error) {
             alert("Erro ao salvar: " + error.message);
         } finally {
