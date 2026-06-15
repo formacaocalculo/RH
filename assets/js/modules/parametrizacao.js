@@ -82,7 +82,124 @@ export function render() {
     `;
 }
 
+// assets/js/modules/parametrizacao.js
+import { db } from '../app.js';
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// --- FUNÇÃO PARA CALCULAR FERIADOS AUTOMATICAMENTE ---
+function calcularFeriadosPortugal(ano) {
+    // Algoritmo de Gauss para calcular o Domingo de Páscoa
+    const a = ano % 19;
+    const b = Math.floor(ano / 100);
+    const c = ano % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const mesPascoa = Math.floor((h + l - 7 * m + 114) / 31); // 3 = Março, 4 = Abril
+    const diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
+
+    // Criar datas base para feriados móveis
+    const pascoa = new Date(ano, mesPascoa - 1, diaPascoa);
+    
+    // Carnaval (47 dias antes da Páscoa)
+    const carnaval = new Date(pascoa);
+    carnaval.setDate(pascoa.getDate() - 47);
+    
+    // Sexta-feira Santa (2 dias antes da Páscoa)
+    const sextaSanta = new Date(pascoa);
+    sextaSanta.setDate(pascoa.getDate() - 2);
+    
+    // Corpo de Deus (60 dias após a Páscoa)
+    const corpoDeDeus = new Date(pascoa);
+    corpoDeDeus.setDate(pascoa.getDate() + 60);
+
+    // Função auxiliar para formatar em "DD/MM"
+    const fmt = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+
+    // Lista de Feriados Nacionais e Dias Santos de Portugal
+    const feriados = [
+        `01/01 (Ano Novo)`,
+        `${fmt(carnaval)} (Carnaval - opcional)`,
+        `${fmt(sextaSanta)} (Sexta-feira Santa)`,
+        `${fmt(pascoa)} (Páscoa)`,
+        `25/04 (Dia da Liberdade)`,
+        `01/05 (Dia do Trabalhador)`,
+        `${fmt(corpoDeDeus)} (Corpo de Deus)`,
+        `10/06 (Dia de Portugal)`,
+        `15/08 (Assunção de Nossa Senhora)`,
+        `05/10 (Implantação da República)`,
+        `01/11 (Todos os Santos)`,
+        `01/12 (Restauração da Independência)`,
+        `08/12 (Imaculada Conceição)`,
+        `25/12 (Natal)`
+    ];
+
+    return feriados.join(', ');
+}
+
+// --- FUNÇÃO INIT ATUALIZADA ---
 export async function init() {
+    const docRef = doc(db, "configuracoes", "empresa_base");
+    const inputAno = document.getElementById('cal-ano');
+    const txtFeriados = document.getElementById('cal-feriados-nacionais');
+
+    // 1. Tenta carregar os dados guardados do Firebase
+    try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const dados = docSnap.data();
+            document.getElementById('empresa-nome').value = dados.nome || '';
+            document.getElementById('empresa-morada').value = dados.morada || '';
+            document.getElementById('empresa-nif').value = dados.nif || '';
+            inputAno.value = dados.ano || '2026';
+            txtFeriados.value = dados.feriadosNacionais || calcularFeriadosPortugal(parseInt(inputAno.value));
+            document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
+        } else {
+            // Se o Firebase estiver vazio, gera logo os feriados para o ano padrão (2026)
+            txtFeriados.value = calcularFeriadosPortugal(parseInt(inputAno.value));
+        }
+    } catch (error) {
+        console.error("Erro ao carregar parametrização:", error);
+    }
+
+    // 2. Ouvinte: Se o utilizador mudar o ANO, recalcula os feriados na hora!
+    inputAno.addEventListener('change', () => {
+        const anoSelecionado = parseInt(inputAno.value) || 2026;
+        txtFeriados.value = calcularFeriadosPortugal(anoSelecionado);
+    });
+
+    // 3. Gravar dados no Firebase
+    document.getElementById('btn-salvar-param').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-salvar-param');
+        btn.innerText = "A guardar...";
+        btn.disabled = true;
+
+        const dadosParaSalvar = {
+            nome: document.getElementById('empresa-nome').value,
+            morada: document.getElementById('empresa-morada').value,
+            nif: document.getElementById('empresa-nif').value,
+            ano: inputAno.value,
+            feriadosNacionais: txtFeriados.value,
+            feriadosLocais: document.getElementById('cal-feriados-locais').value
+        };
+
+        try {
+            await setDoc(docRef, dadosParaSalvar);
+            alert("Parâmetros guardados com sucesso no Firebase!");
+        } catch (error) {
+            alert("Erro ao salvar: " + error.message);
+        } finally {
+            btn.innerText = "💾 Guardar Configurações";
+            btn.disabled = false;
+        }
+    });
+}export async function init() {
     const docRef = doc(db, "configuracoes", "empresa_base");
 
     // 1. Carregar dados guardados do Firebase (se existirem)
