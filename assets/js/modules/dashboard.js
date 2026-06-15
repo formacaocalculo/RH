@@ -13,12 +13,15 @@ export function render() {
             
             <nav class="menu">
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
-                <a href="#" style="display: block; color: #fff; background-color: #3b82f6; padding: 10px; border-radius: 6px; text-decoration: none; margin-bottom: 20px;">📊 Dashboard</a>
+                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background-color: #3b82f6; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px;">📊 Dashboard</button>
                 
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Gestão</p>
-                <a href="#" style="display: block; color: #8a99ad; padding: 10px; text-decoration: none;">👥 Colaboradores</a>
-                <a href="#" style="display: block; color: #8a99ad; padding: 10px; text-decoration: none;">⚙️ Processamento</a>
-                <a href="#" style="display: block; color: #8a99ad; padding: 10px; text-decoration: none;">📄 Recibos</a>
+                <button onclick="window.router.navigate('funcionarios')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">👥 Colaboradores</button>
+                <button onclick="window.router.navigate('processamento')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Processamento</button>
+                <button onclick="window.router.navigate('recibos')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">📄 Recibos</button>
+                
+                <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">Configurações</p>
+                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Parametrização</button>
             </nav>
         </aside>
 
