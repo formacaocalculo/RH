@@ -1,52 +1,66 @@
 // ================================================================
-//  router.js — Registo de rotas + carregamento dinâmico de módulos
+//  router.js — Registo de rotas + imports ESTÁTICOS
+//
+//  Funciona com file:// (sem servidor HTTP).
+//  Todos os módulos são importados uma vez no arranque;
+//  o router apenas chama init() / cleanup() conforme a rota activa.
 //
 //  Para adicionar um novo módulo:
-//    1. Criar assets/js/modules/nome.js  (exportar default { init })
-//    2. Adicionar uma entrada em ROUTES abaixo.
+//    1. Criar assets/js/modules/nome.js  (export default { init })
+//    2. Importá-lo no bloco de imports abaixo (uma linha)
+//    3. Adicionar entrada em ROUTES (uma linha)
 //    Não é necessário tocar em mais nenhum ficheiro.
 // ================================================================
 
-import { marcarNavActiva, toast } from "./ui.js";
+import { marcarNavActiva } from "./ui.js";
 
-// ── Registo de rotas ────────────────────────────────────────────
+// ── Imports estáticos de todos os módulos ────────────────────────
+import modDashboard      from "./modules/dashboard.js";
+import modFuncionarios   from "./modules/funcionarios.js";
+import modProcessamento  from "./modules/processamento.js";
+import modRecibos        from "./modules/recibos.js";
+import modBancoHoras     from "./modules/banco-horas.js";
+import modFerias         from "./modules/ferias.js";
+import modFaltas         from "./modules/faltas.js";
+
+// ── Registo de rotas ─────────────────────────────────────────────
 //
-//  path      : fragmento de URL (#path)
-//  title     : título da página (topbar + <title>)
-//  icon      : emoji do menu lateral
-//  group     : grupo de navegação (string label)
-//  module    : caminho do módulo JS (relativo a assets/js/)
-//  actions   : HTML injectado na zona direita da topbar (opcional)
+//  path    : fragmento de URL  (#path)
+//  title   : título na topbar e no <title>
+//  icon    : emoji no menu lateral
+//  group   : grupo de navegação
+//  mod     : referência ao módulo importado acima
+//  actions : HTML opcional injectado à direita da topbar
 //
-export const ROUTES = [
+const ROUTES = [
   {
-    path:    "dashboard",
-    title:   "Dashboard",
-    icon:    "📊",
-    group:   "Principal",
-    module:  "modules/dashboard.js",
+    path:  "dashboard",
+    title: "Dashboard",
+    icon:  "📊",
+    group: "Principal",
+    mod:   modDashboard,
   },
   {
     path:    "funcionarios",
     title:   "Colaboradores",
     icon:    "👥",
     group:   "Gestão",
-    module:  "modules/funcionarios.js",
+    mod:     modFuncionarios,
     actions: `<button class="btn btn--primary btn--sm" id="btnNovoFunc">＋ Novo Colaborador</button>`,
   },
   {
-    path:    "processamento",
-    title:   "Processamento",
-    icon:    "⚙️",
-    group:   "Gestão",
-    module:  "modules/processamento.js",
+    path:  "processamento",
+    title: "Processamento",
+    icon:  "⚙️",
+    group: "Gestão",
+    mod:   modProcessamento,
   },
   {
     path:    "recibos",
     title:   "Recibos",
     icon:    "🧾",
     group:   "Gestão",
-    module:  "modules/recibos.js",
+    mod:     modRecibos,
     actions: `<a href="#processamento" class="btn btn--primary btn--sm">⚙️ Processar novo</a>`,
   },
   {
@@ -54,7 +68,7 @@ export const ROUTES = [
     title:   "Banco de Horas",
     icon:    "⏱️",
     group:   "Assiduidade",
-    module:  "modules/banco-horas.js",
+    mod:     modBancoHoras,
     actions: `<button class="btn btn--primary btn--sm" id="btnNovoMov">＋ Registar Movimento</button>`,
   },
   {
@@ -62,7 +76,7 @@ export const ROUTES = [
     title:   "Férias",
     icon:    "🌴",
     group:   "Assiduidade",
-    module:  "modules/ferias.js",
+    mod:     modFerias,
     actions: `<button class="btn btn--primary btn--sm" id="btnNovoPedido">＋ Novo Pedido</button>`,
   },
   {
@@ -70,17 +84,15 @@ export const ROUTES = [
     title:   "Faltas",
     icon:    "📅",
     group:   "Assiduidade",
-    module:  "modules/faltas.js",
+    mod:     modFaltas,
     actions: `<button class="btn btn--primary btn--sm" id="btnNovaFalta">＋ Registar Falta</button>`,
   },
 ];
 
-// ── Nav HTML (gerada uma única vez) ─────────────────────────────
+// ── Construir navegação (uma única vez) ──────────────────────────
 function buildNav() {
   const groups = {};
-  for (const r of ROUTES) {
-    (groups[r.group] ??= []).push(r);
-  }
+  for (const r of ROUTES) (groups[r.group] ??= []).push(r);
   return Object.entries(groups).map(([label, routes]) => `
     <div class="nav__group">
       <div class="nav__label">${label}</div>
@@ -91,48 +103,47 @@ function buildNav() {
     </div>`).join("");
 }
 
-// ── Loader dinâmico ─────────────────────────────────────────────
-let activeCleanup = null;   // função de limpeza do módulo anterior
-let activeModule  = null;
+// ── Estado do router ─────────────────────────────────────────────
+let activeCleanup = null;
 
 async function loadRoute(path) {
   const route = ROUTES.find(r => r.path === path) ?? ROUTES[0];
 
-  // Limpeza do módulo anterior
+  // Limpar módulo anterior
   if (typeof activeCleanup === "function") {
-    try { activeCleanup(); } catch {}
+    try { activeCleanup(); } catch (e) { console.warn("[router] cleanup error", e); }
+    activeCleanup = null;
   }
-  activeCleanup = null;
-  activeModule  = null;
 
   // Actualizar shell
   document.title = `Portal RH — ${route.title}`;
-  document.getElementById("appTitle").textContent = route.title;
-  document.getElementById("appTopbarActions").innerHTML = route.actions ?? "";
+  document.getElementById("appTitle").textContent        = route.title;
+  document.getElementById("appTopbarActions").innerHTML  = route.actions ?? "";
   document.getElementById("appContent").innerHTML =
     `<div class="page-loading"><div class="spinner"></div><span>A carregar…</span></div>`;
 
   marcarNavActiva(path);
 
-  // Importar módulo
+  // Inicializar módulo (já importado estaticamente)
   try {
-    const mod = await import(`./${route.module}?v=${Date.now()}`);
-    activeModule = mod.default ?? mod;
-    const cleanup = await activeModule.init?.({ route });
+    const cleanup = await route.mod.init?.({ route });
     if (typeof cleanup === "function") activeCleanup = cleanup;
   } catch (err) {
-    console.error(`[Router] Erro ao carregar módulo "${route.module}":`, err);
+    console.error(`[router] erro no módulo "${route.path}":`, err);
     document.getElementById("appContent").innerHTML = `
       <div class="error-state">
         <div class="error-state__icon">⚠️</div>
         <div class="error-state__title">Erro ao carregar módulo</div>
-        <div class="error-state__msg">${err.message}</div>
+        <div class="error-state__msg"><code>${err.message}</code></div>
+        <p style="font-size:.8rem;color:var(--c-ink-3);margin-top:8px">
+          Verifique a consola do browser (F12) para mais detalhes.
+        </p>
       </div>`;
   }
 }
 
 // ── Bootstrap ────────────────────────────────────────────────────
-document.getElementById("appNav").innerHTML = buildNav();
+document.getElementById("appNav").innerHTML      = buildNav();
 document.getElementById("anoActual").textContent = new Date().getFullYear();
 
 // Hash routing
@@ -141,7 +152,7 @@ function onHashChange() {
   loadRoute(path);
 }
 window.addEventListener("hashchange", onHashChange);
-onHashChange();   // carga inicial
+onHashChange(); // carga inicial
 
 // Mobile burger
 const burger  = document.getElementById("burgerBtn");
@@ -155,7 +166,6 @@ overlay.addEventListener("click", () => {
   sidebar.classList.remove("open");
   overlay.classList.remove("active");
 });
-// Fechar sidebar ao navegar (mobile)
 document.getElementById("appNav").addEventListener("click", () => {
   sidebar.classList.remove("open");
   overlay.classList.remove("active");
