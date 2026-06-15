@@ -5,7 +5,6 @@ import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/
 export function render() {
     return `
     <div class="portal-container" style="display: flex; min-height: 100vh; background-color: #f4f6f9;">
-        <!-- Menu Lateral -->
         <aside class="sidebar" style="width: 260px; background-color: #1a233a; color: #fff; padding: 20px;">
             <div class="logo-section" style="display: flex; align-items: center; margin-bottom: 30px;">
                 <div style="background-color: #3b82f6; padding: 8px; border-radius: 8px; margin-right: 10px;">🏢</div>
@@ -16,14 +15,13 @@ export function render() {
             </div>
             <nav class="menu">
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
-                <a href="#dashboard" style="display: block; color: #8a99ad; padding: 10px; text-decoration: none; margin-bottom: 10px;">📊 Dashboard</a>
+                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">📊 Dashboard</button>
                 
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Configurações</p>
-                <a href="#parametrizacao" style="display: block; color: #fff; background-color: #3b82f6; padding: 10px; border-radius: 6px; text-decoration: none; margin-bottom: 10px;">⚙️ Parametrização</a>
+                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background-color: #3b82f6; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px;">⚙️ Parametrização</button>
             </nav>
         </aside>
 
-        <!-- Conteúdo Principal -->
         <main class="main-content" style="flex: 1; padding: 30px;">
             <header style="margin-bottom: 30px;">
                 <h2 style="margin: 0; font-size: 24px; color: #1a233a;">Parametrização do Sistema</h2>
@@ -32,7 +30,6 @@ export function render() {
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 
-                <!-- Bloco 1: Dados da Empresa -->
                 <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                     <h4 style="margin: 0 0 20px 0; color: #1a233a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px;">🏢 Dados da Empresa</h4>
                     
@@ -52,7 +49,6 @@ export function render() {
                     </div>
                 </div>
 
-                <!-- Bloco 2: Calendário e Feriados -->
                 <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                     <h4 style="margin: 0 0 20px 0; color: #1a233a; border-bottom: 2px solid #f59e0b; padding-bottom: 8px;">📅 Calendário e Dias Santos</h4>
                     
@@ -63,7 +59,7 @@ export function render() {
 
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Feriados Nacionais e Dias Santos (Separados por vírgula)</label>
-                        <textarea id="cal-feriados-nacionais" rows="2" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit;" placeholder="Ex: 01/01, 25/04, 01/05, 10/06, 25/12"></textarea>
+                        <textarea id="cal-feriados-nacionais" rows="4" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit;" placeholder="A calcular..."></textarea>
                     </div>
 
                     <div style="margin-bottom: 15px;">
@@ -73,7 +69,6 @@ export function render() {
                 </div>
             </div>
 
-            <!-- Botão de Gravar -->
             <div style="margin-top: 20px; text-align: right;">
                 <button id="btn-salvar-param" style="background-color: #10b981; color: #fff; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">💾 Guardar Configurações</button>
             </div>
@@ -82,13 +77,8 @@ export function render() {
     `;
 }
 
-// assets/js/modules/parametrizacao.js
-import { db } from '../app.js';
-import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
 // --- FUNÇÃO PARA CALCULAR FERIADOS AUTOMATICAMENTE ---
 function calcularFeriadosPortugal(ano) {
-    // Algoritmo de Gauss para calcular o Domingo de Páscoa
     const a = ano % 19;
     const b = Math.floor(ano / 100);
     const c = ano % 100;
@@ -101,38 +91,32 @@ function calcularFeriadosPortugal(ano) {
     const k = c % 4;
     const l = (32 + 2 * e + 2 * i - h - k) % 7;
     const m = Math.floor((a + 11 * h + 22 * l) / 451);
-    const mesPascoa = Math.floor((h + l - 7 * m + 114) / 31); // 3 = Março, 4 = Abril
+    const mesPascoa = Math.floor((h + l - 7 * m + 114) / 31);
     const diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
 
-    // Criar datas base para feriados móveis
     const pascoa = new Date(ano, mesPascoa - 1, diaPascoa);
     
-    // Carnaval (47 dias antes da Páscoa)
     const carnaval = new Date(pascoa);
     carnaval.setDate(pascoa.getDate() - 47);
     
-    // Sexta-feira Santa (2 dias antes da Páscoa)
     const sextaSanta = new Date(pascoa);
     sextaSanta.setDate(pascoa.getDate() - 2);
     
-    // Corpo de Deus (60 dias após a Páscoa)
     const corpoDeDeus = new Date(pascoa);
     corpoDeDeus.setDate(pascoa.getDate() + 60);
 
-    // Função auxiliar para formatar em "DD/MM"
     const fmt = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
 
-    // Lista de Feriados Nacionais e Dias Santos de Portugal
     const feriados = [
         `01/01 (Ano Novo)`,
-        `${fmt(carnaval)} (Carnaval - opcional)`,
+        `${fmt(carnaval)} (Carnaval)`,
         `${fmt(sextaSanta)} (Sexta-feira Santa)`,
         `${fmt(pascoa)} (Páscoa)`,
         `25/04 (Dia da Liberdade)`,
         `01/05 (Dia do Trabalhador)`,
         `${fmt(corpoDeDeus)} (Corpo de Deus)`,
         `10/06 (Dia de Portugal)`,
-        `15/08 (Assunção de Nossa Senhora)`,
+        `15/08 (Assunção de N. Sra.)`,
         `05/10 (Implantação da República)`,
         `01/11 (Todos os Santos)`,
         `01/12 (Restauração da Independência)`,
@@ -143,13 +127,13 @@ function calcularFeriadosPortugal(ano) {
     return feriados.join(', ');
 }
 
-// --- FUNÇÃO INIT ATUALIZADA ---
+// --- APENAS UMA FUNÇÃO INIT ---
 export async function init() {
     const docRef = doc(db, "configuracoes", "empresa_base");
     const inputAno = document.getElementById('cal-ano');
     const txtFeriados = document.getElementById('cal-feriados-nacionais');
 
-    // 1. Tenta carregar os dados guardados do Firebase
+    // 1. Tenta carregar do Firebase
     try {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -158,23 +142,27 @@ export async function init() {
             document.getElementById('empresa-morada').value = dados.morada || '';
             document.getElementById('empresa-nif').value = dados.nif || '';
             inputAno.value = dados.ano || '2026';
+            
+            // Se já houver feriados gravados, usa esses. Se não, calcula automáticos
             txtFeriados.value = dados.feriadosNacionais || calcularFeriadosPortugal(parseInt(inputAno.value));
             document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
         } else {
-            // Se o Firebase estiver vazio, gera logo os feriados para o ano padrão (2026)
+            // Se for a primeira vez e o documento não existir, calcula na hora
             txtFeriados.value = calcularFeriadosPortugal(parseInt(inputAno.value));
         }
     } catch (error) {
         console.error("Erro ao carregar parametrização:", error);
+        // Em caso de erro na rede, calcula localmente para não ficar em branco
+        txtFeriados.value = calcularFeriadosPortugal(parseInt(inputAno.value));
     }
 
-    // 2. Ouvinte: Se o utilizador mudar o ANO, recalcula os feriados na hora!
+    // 2. Ouvinte para quando o utilizador alterar o ano na caixa de input
     inputAno.addEventListener('change', () => {
         const anoSelecionado = parseInt(inputAno.value) || 2026;
         txtFeriados.value = calcularFeriadosPortugal(anoSelecionado);
     });
 
-    // 3. Gravar dados no Firebase
+    // 3. Evento para Salvar dados no Firebase
     document.getElementById('btn-salvar-param').addEventListener('click', async () => {
         const btn = document.getElementById('btn-salvar-param');
         btn.innerText = "A guardar...";
@@ -186,50 +174,6 @@ export async function init() {
             nif: document.getElementById('empresa-nif').value,
             ano: inputAno.value,
             feriadosNacionais: txtFeriados.value,
-            feriadosLocais: document.getElementById('cal-feriados-locais').value
-        };
-
-        try {
-            await setDoc(docRef, dadosParaSalvar);
-            alert("Parâmetros guardados com sucesso no Firebase!");
-        } catch (error) {
-            alert("Erro ao salvar: " + error.message);
-        } finally {
-            btn.innerText = "💾 Guardar Configurações";
-            btn.disabled = false;
-        }
-    });
-}export async function init() {
-    const docRef = doc(db, "configuracoes", "empresa_base");
-
-    // 1. Carregar dados guardados do Firebase (se existirem)
-    try {
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            const dados = docSnap.data();
-            document.getElementById('empresa-nome').value = dados.nome || '';
-            document.getElementById('empresa-morada').value = dados.morada || '';
-            document.getElementById('empresa-nif').value = dados.nif || '';
-            document.getElementById('cal-ano').value = dados.ano || '2026';
-            document.getElementById('cal-feriados-nacionais').value = dados.feriadosNacionais || '';
-            document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
-        }
-    } catch (error) {
-        console.error("Erro ao carregar parametrização:", error);
-    }
-
-    // 2. Evento para Salvar dados no Firebase
-    document.getElementById('btn-salvar-param').addEventListener('click', async () => {
-        const btn = document.getElementById('btn-salvar-param');
-        btn.innerText = "A guardar...";
-        btn.disabled = true;
-
-        const dadosParaSalvar = {
-            nome: document.getElementById('empresa-nome').value,
-            morada: document.getElementById('empresa-morada').value,
-            nif: document.getElementById('empresa-nif').value,
-            ano: document.getElementById('cal-ano').value,
-            feriadosNacionais: document.getElementById('cal-feriados-nacionais').value,
             feriadosLocais: document.getElementById('cal-feriados-locais').value
         };
 
