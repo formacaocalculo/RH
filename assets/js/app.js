@@ -1,14 +1,18 @@
 // assets/js/app.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { firebaseConfig } from './firebase-config.js';
 
-// Importamos todas as funções do router.js
-import * as router from './router.js';
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
 
-// Tornamos as funções do router acessíveis globalmente no navegador
-// para que o onclick="..." no HTML as consiga encontrar.
-window.router = router;
-
-// Aqui podes adicionar lógica de inicialização da app (ex: verificar autenticação)
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("Portal RH iniciado.");
-    // Exemplo: router.navigate('dashboard');
+// Escuta a autenticação
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        // Se logado, vai para o dashboard
+        window.router.navigate('dashboard');
+    } else {
+        // Se não logado, vai para o login
+        window.router.navigate('login');
+    }
 });
