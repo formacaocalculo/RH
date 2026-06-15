@@ -16,7 +16,6 @@ export function render() {
             <nav class="menu">
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
                 <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">📊 Dashboard</button>
-                
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background-color: #3b82f6; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px; font-weight: bold;">⚙️ Parametrização</button>
             </nav>
@@ -29,20 +28,16 @@ export function render() {
             </header>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                
                 <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                     <h4 style="margin: 0 0 20px 0; color: #1a233a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px;">🏢 Dados da Empresa</h4>
-                    
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Nome da Empresa</label>
                         <input type="text" id="empresa-nome" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
-                    
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Morada da Empresa</label>
                         <input type="text" id="empresa-morada" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
-                    
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">NIF da Empresa</label>
                         <input type="text" id="empresa-nif" maxlength="9" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
@@ -51,17 +46,12 @@ export function render() {
 
                 <div style="background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
                     <h4 style="margin: 0 0 20px 0; color: #1a233a; border-bottom: 2px solid #f59e0b; padding-bottom: 8px;">📅 Calendário e Dias Santos</h4>
-                    
                     <div style="margin-bottom: 20px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Ano Corrente do Calendário</label>
                         <input type="number" id="cal-ano" value="2026" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                     </div>
-
-                    <label style="display:block; margin-bottom:10px; font-weight:500; color:#475569;">Feriados Nacionais (Um por linha):</label>
-                    
-                    <div id="lista-feriados-linhas" style="max-height: 320px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background-color: #f8fafc; margin-bottom: 15px;">
-                        </div>
-
+                    <label style="display:block; margin-bottom:10px; font-weight:500; color:#475569;">Feriados (Selecionar quais são obrigatórios):</label>
+                    <div id="lista-feriados-linhas" style="max-height: 320px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background-color: #f8fafc; margin-bottom: 15px;"></div>
                     <div style="margin-top: auto;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Feriados Locais (Município)</label>
                         <input type="text" id="cal-feriados-locais" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;" placeholder="Ex: 24/06 (São João)">
@@ -78,31 +68,18 @@ export function render() {
 }
 
 function calcularFeriadosPortugal(ano) {
-    const a = ano % 19;
-    const b = Math.floor(ano / 100);
-    const c = ano % 100;
-    const d = Math.floor(b / 4);
-    const e = b % 4;
-    const f = Math.floor((b + 8) / 25);
-    const g = Math.floor((b - f + 1) / 3);
-    const h = (19 * a + b - d - g + 15) % 30;
-    const i = Math.floor(c / 4);
-    const k = c % 4;
-    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const a = ano % 19; const b = Math.floor(ano / 100); const c = ano % 100;
+    const d = Math.floor(b / 4); const e = b % 4; const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3); const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4); const k = c % 4; const l = (32 + 2 * e + 2 * i - h - k) % 7;
     const m = Math.floor((a + 11 * h + 22 * l) / 451);
     const mesPascoa = Math.floor((h + l - 7 * m + 114) / 31);
     const diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
-
     const pascoa = new Date(ano, mesPascoa - 1, diaPascoa);
     
-    const carnaval = new Date(pascoa);
-    carnaval.setDate(pascoa.getDate() - 47);
-    
-    const sextaSanta = new Date(pascoa);
-    sextaSanta.setDate(pascoa.getDate() - 2);
-    
-    const corpoDeDeus = new Date(pascoa);
-    corpoDeDeus.setDate(pascoa.getDate() + 60);
+    const carnaval = new Date(pascoa); carnaval.setDate(pascoa.getDate() - 47);
+    const sextaSanta = new Date(pascoa); sextaSanta.setDate(pascoa.getDate() - 2);
+    const corpoDeDeus = new Date(pascoa); corpoDeDeus.setDate(pascoa.getDate() + 60);
 
     const fmt = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
 
@@ -124,18 +101,21 @@ function calcularFeriadosPortugal(ano) {
     ];
 }
 
-// Renderiza estritamente os blocos visuais linha por linha
-function atualizarInterfaceFeriados(lista) {
+function atualizarInterfaceFeriados(lista, feriadosAtivos = []) {
     const container = document.getElementById('lista-feriados-linhas');
     if (!container) return;
-
     container.innerHTML = "";
+    
     lista.forEach(f => {
+        // Se a lista de guardados estiver vazia, assumimos tudo ligado (exceto Carnaval), 
+        // ou podes definir a lógica padrão que preferires.
+        const isChecked = feriadosAtivos.includes(f.nome) || (feriadosAtivos.length === 0 && f.nome !== "Carnaval");
+        
         container.innerHTML += `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; margin-bottom: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px;">
-                <span style="font-weight: bold; color: #3b82f6; background-color: #eff6ff; padding: 2px 8px; border-radius: 4px; font-family: monospace;">${f.data}</span>
-                <span style="font-weight: 500; color: #1e293b; flex: 1; margin-left: 15px; text-align: left;">${f.nome}</span>
-                <span style="color: #10b981; font-size: 10px; font-weight: bold; text-transform: uppercase; background-color: #ecfdf5; padding: 2px 6px; border-radius: 4px;">Nacional</span>
+            <div style="display: flex; align-items: center; padding: 8px 12px; margin-bottom: 6px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px;">
+                <input type="checkbox" class="check-feriado" data-nome="${f.nome}" ${isChecked ? 'checked' : ''} style="margin-right: 12px; transform: scale(1.2);">
+                <span style="font-weight: bold; color: #3b82f6; background-color: #eff6ff; padding: 2px 8px; border-radius: 4px; font-family: monospace; min-width: 45px;">${f.data}</span>
+                <span style="font-weight: 500; color: #1e293b; flex: 1; margin-left: 15px;">${f.nome}</span>
             </div>
         `;
     });
@@ -144,10 +124,8 @@ function atualizarInterfaceFeriados(lista) {
 export async function init() {
     const docRef = doc(db, "configuracoes", "empresa_base");
     const inputAno = document.getElementById('cal-ano');
-    
-    // Força sempre o cálculo limpo inicial baseado no ano para evitar misturas antigas
     let anoAtual = parseInt(inputAno.value) || 2026;
-    let feriadosTratados = calcularFeriadosPortugal(anoAtual);
+    let feriadosAtivosGuardados = [];
 
     try {
         const docSnap = await getDoc(docRef);
@@ -156,51 +134,37 @@ export async function init() {
             document.getElementById('empresa-nome').value = dados.nome || '';
             document.getElementById('empresa-morada').value = dados.morada || '';
             document.getElementById('empresa-nif').value = dados.nif || '';
-            
-            if (dados.ano) {
-                inputAno.value = dados.ano;
-                anoAtual = parseInt(dados.ano);
-                // Recalcula o array do ano guardado para estruturar em linhas
-                feriadosTratados = calcularFeriadosPortugal(anoAtual);
-            }
             document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
+            if (dados.ano) inputAno.value = dados.ano;
+            feriadosAtivosGuardados = dados.feriadosAtivos || [];
         }
-    } catch (error) {
-        console.error("Erro ao carregar do Firebase:", error);
-    }
+    } catch (error) { console.error("Erro ao carregar do Firebase:", error); }
 
-    // Desenha as linhas no ecrã
-    atualizarInterfaceFeriados(feriadosTratados);
+    atualizarInterfaceFeriados(calcularFeriadosPortugal(anoAtual), feriadosAtivosGuardados);
 
-    // Se mudar o ano no input, reconstrói as linhas do zero imediatamente
     inputAno.addEventListener('change', () => {
-        anoAtual = parseInt(inputAno.value) || 2026;
-        feriadosTratados = calcularFeriadosPortugal(anoAtual);
-        atualizarInterfaceFeriados(feriadosTratados);
+        atualizarInterfaceFeriados(calcularFeriadosPortugal(parseInt(inputAno.value)), feriadosAtivosGuardados);
     });
 
-    // Evento de salvamento
     document.getElementById('btn-salvar-param').addEventListener('click', async () => {
         const btn = document.getElementById('btn-salvar-param');
         btn.innerText = "A guardar...";
         btn.disabled = true;
 
-        const dadosParaSalvar = {
-            nome: document.getElementById('empresa-nome').value,
-            morada: document.getElementById('empresa-morada').value,
-            nif: document.getElementById('empresa-nif').value,
-            ano: inputAno.value,
-            feriadosLocais: document.getElementById('cal-feriados-locais').value
-        };
+        const selecionados = Array.from(document.querySelectorAll('.check-feriado:checked'))
+                                  .map(el => el.getAttribute('data-nome'));
 
         try {
-            await setDoc(docRef, dadosParaSalvar);
+            await setDoc(docRef, {
+                nome: document.getElementById('empresa-nome').value,
+                morada: document.getElementById('empresa-morada').value,
+                nif: document.getElementById('empresa-nif').value,
+                ano: inputAno.value,
+                feriadosLocais: document.getElementById('cal-feriados-locais').value,
+                feriadosAtivos: selecionados
+            });
             alert("Parâmetros atualizados com sucesso!");
-        } catch (error) {
-            alert("Erro ao salvar: " + error.message);
-        } finally {
-            btn.innerText = "💾 Guardar Configurações";
-            btn.disabled = false;
-        }
+        } catch (error) { alert("Erro ao salvar: " + error.message); }
+        finally { btn.innerText = "💾 Guardar Configurações"; btn.disabled = false; }
     });
 }
