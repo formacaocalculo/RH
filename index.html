@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal RH</title>
+  <link rel="stylesheet" href="assets/css/shell.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     SHELL — renderizado UMA VEZ, nunca alterado por módulos
+     ═══════════════════════════════════════════════════════ -->
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar__logo">
+    <div class="sidebar__logo-icon">🏢</div>
+    <div>
+      <div class="sidebar__logo-text">Portal RH</div>
+      <div class="sidebar__logo-sub">Gestão de Vencimentos</div>
+    </div>
+  </div>
+
+  <!-- Nav gerada pelo router — não editar aqui -->
+  <nav class="nav" id="appNav"></nav>
+
+  <div class="sidebar__footer">
+    Portal RH v2.0 · <span id="anoActual"></span>
+  </div>
+</aside>
+
+<div class="main" id="appMain">
+  <header class="topbar" id="appTopbar">
+    <div class="topbar__left">
+      <button class="topbar__burger" id="burgerBtn" aria-label="Menu">☰</button>
+      <span class="topbar__title" id="appTitle">A carregar…</span>
+    </div>
+    <div class="topbar__right" id="appTopbarActions"></div>
+  </header>
+
+  <!-- Zona de conteúdo: cada módulo injeta aqui o seu HTML -->
+  <div class="page" id="appContent">
+    <div class="page-loading">
+      <div class="spinner"></div>
+      <span>A carregar módulo…</span>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay do sidebar (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<script type="module" src="assets/js/router.js"></script>
+</body>
+</html>
