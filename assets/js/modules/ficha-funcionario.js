@@ -1,30 +1,9 @@
 // assets/js/modules/ficha-funcionario.js
 import { db } from '../app.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { calcularDireitoFerias, feriadosPortugal } from './ferias-utils.js';
 
-// ─── Regra de direito a férias ────────────────────────────────────────────────
-// Ano admissão:
-//   - Se admitido a 1 Jan → direito pleno (limiteDiasFerias)
-//   - Caso contrário → 2 dias × nº de meses trabalhados (mês admissão conta),
-//     com máximo de 20 dias
-// Anos seguintes: limiteDiasFerias (normalmente 22)
-
-export function calcularDireitoFerias(admissaoStr, anoAlvo, limiteDiasFerias = 22) {
-    if (!admissaoStr) return limiteDiasFerias;
-    const adm = new Date(admissaoStr + 'T00:00:00');
-    const anoAdm = adm.getFullYear();
-
-    if (anoAlvo !== anoAdm) return limiteDiasFerias;
-
-    // Excepção: 1 de Janeiro
-    if (adm.getMonth() === 0 && adm.getDate() === 1) return limiteDiasFerias;
-
-    // Meses trabalhados no ano de admissão (mês de admissão conta como 1)
-    // Janeiro=0 … Dezembro=11
-    // meses restantes = 12 - mesAdmissao (0-based)
-    const mesesTrabalhados = 12 - adm.getMonth(); // inclui o mês de admissão
-    return Math.min(mesesTrabalhados * 2, 20);
-}
+// calcularDireitoFerias e feriadosPortugal importados de ferias-utils.js
 
 // ─── Estado do módulo ─────────────────────────────────────────────────────────
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
@@ -336,7 +315,7 @@ export async function init() {
         if (ps.exists()) {
             const pd = ps.data();
             S.limiteDiasFerias = pd.limiteDiasFerias || 22;
-            const lista = _feriadosPortugal(S.ano);
+            const lista = feriadosPortugal(S.ano);
             const ativos = pd.feriadosAtivos || lista.map(f => f.nome);
             lista.forEach(f => { if (ativos.includes(f.nome)) S.feriados.add(f.data); });
             if (pd.feriadosLocais) {
@@ -413,23 +392,4 @@ function _syncAno() {
     if (sel) sel.value = S.ano;
 }
 
-// ─── Feriados Portugal ────────────────────────────────────────────────────────
-function _feriadosPortugal(ano) {
-    const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4;
-    const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
-    const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
-    const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
-    const mp=Math.floor((h+l-7*m+114)/31),dp=((h+l-7*m+114)%31)+1;
-    const p=new Date(ano,mp-1,dp);
-    const add=(x,n)=>{const r=new Date(x);r.setDate(x.getDate()+n);return r;};
-    const fmt=x=>`${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-    return [
-        {data:'01-01',nome:'Ano Novo'},{data:fmt(add(p,-47)),nome:'Carnaval'},
-        {data:fmt(add(p,-2)),nome:'Sexta-feira Santa'},{data:fmt(p),nome:'Páscoa'},
-        {data:'04-25',nome:'Dia da Liberdade'},{data:'05-01',nome:'Dia do Trabalhador'},
-        {data:fmt(add(p,60)),nome:'Corpo de Deus'},{data:'06-10',nome:'Dia de Portugal'},
-        {data:'08-15',nome:'Assunção de N. Sra.'},{data:'10-05',nome:'Implantação da República'},
-        {data:'11-01',nome:'Todos os Santos'},{data:'12-01',nome:'Restauração da Independência'},
-        {data:'12-08',nome:'Imaculada Conceição'},{data:'12-25',nome:'Natal'},
-    ];
-}
+// feriadosPortugal importado de ferias-utils.js
