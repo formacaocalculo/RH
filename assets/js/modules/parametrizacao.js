@@ -61,6 +61,11 @@ export function render() {
                         <input type="number" id="cal-limite-ferias" min="1" max="60" value="22" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
                         <small style="color:#94a3b8; font-size:12px;">Número máximo de dias de férias por funcionário por ano (legal mínimo: 22).</small>
                     </div>
+                    <div style="margin-top: 15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">🍽️ Valor do Subsídio de Refeição (€/dia)</label>
+                        <input type="number" id="subsidio-refeicao" min="0" step="0.01" value="6.00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
+                        <small style="color:#94a3b8; font-size:12px;">Valor diário pago por cada dia de trabalho efectivo com direito a subsídio de refeição.</small>
+                    </div>
                 </div>
             </div>
 
@@ -142,6 +147,7 @@ export async function init() {
             document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
             if (dados.ano) inputAno.value = dados.ano;
             if (dados.limiteDiasFerias) document.getElementById('cal-limite-ferias').value = dados.limiteDiasFerias;
+            if (dados.subsidioRefeicao !== undefined) document.getElementById('subsidio-refeicao').value = dados.subsidioRefeicao;
             feriadosAtivosGuardados = dados.feriadosAtivos || [];
         }
     } catch (error) { console.error("Erro ao carregar do Firebase:", error); }
@@ -168,7 +174,8 @@ export async function init() {
                 ano: inputAno.value,
                 feriadosLocais: document.getElementById('cal-feriados-locais').value,
                 feriadosAtivos: selecionados,
-                limiteDiasFerias: parseInt(document.getElementById('cal-limite-ferias').value) || 22
+                limiteDiasFerias: parseInt(document.getElementById('cal-limite-ferias').value) || 22,
+                subsidioRefeicao: parseFloat(document.getElementById('subsidio-refeicao').value) || 0
             });
             alert("Parâmetros atualizados com sucesso!");
         } catch (error) { alert("Erro ao salvar: " + error.message); }

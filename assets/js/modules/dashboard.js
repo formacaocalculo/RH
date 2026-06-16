@@ -21,6 +21,7 @@ export function render() {
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Gestão</p>
                 <button onclick="window.router.navigate('funcionarios')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">👥 Colaboradores</button>
                 <button onclick="window.router.navigate('criar-funcionario')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">➕ Novo Funcionário</button>
+                <button onclick="window.router.navigate('assiduidade')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">📅 Assiduidade</button>
                 <button onclick="window.router.navigate('processamento')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Processamento</button>
                 <button onclick="window.router.navigate('recibos')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">📄 Recibos</button>
                 

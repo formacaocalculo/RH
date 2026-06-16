@@ -195,6 +195,7 @@ export function render() {
                 <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Gestão</p>
                 <button onclick="window.router.navigate('funcionarios')" style="display:block;width:100%;text-align:left;background:#3b82f6;color:#fff;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;font-weight:bold;">👥 Colaboradores</button>
                 <button onclick="window.router.navigate('criar-funcionario')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">➕ Novo Funcionário</button>
+                <button onclick="window.router.navigate('assiduidade')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📅 Assiduidade</button>
                 <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">⚙️ Parametrização</button>
             </nav>

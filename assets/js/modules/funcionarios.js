@@ -30,6 +30,7 @@ function sidebar(ativo = 'funcionarios') {
             <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Gestão</p>
             ${btn('funcionarios','👥','Colaboradores')}
             ${btn('criar-funcionario','➕','Novo Funcionário')}
+            ${btn('assiduidade','📅','Assiduidade')}
             ${btn('processamento','⚙️','Processamento')}
             ${btn('recibos','📄','Recibos')}
             <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
