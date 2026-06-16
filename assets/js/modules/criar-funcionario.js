@@ -17,7 +17,7 @@ export function render() {
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
                 <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;">📊 Dashboard</button>
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Gestão</p>
-                <button onclick="window.router.navigate('funcionarios')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;">👥 Colaboradores</button>
+                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;"style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;" onclick="window.router.navigate('funcionarios')">👥 Colaboradores</button>
                 <button onclick="window.router.navigate('criar-funcionario')" style="display: block; width: 100%; text-align: left; background-color: #3b82f6; color: #fff; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 5px; font-size: 14px; font-weight: bold;">➕ Novo Funcionário</button>
                 <p style="color: #4f5d73; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background: none; color: #8a99ad; padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Parametrização</button>
@@ -26,7 +26,7 @@ export function render() {
 
         <main class="main-content" style="flex: 1; padding: 30px; overflow-y: auto;">
             <header style="display: flex; align-items: center; gap: 15px; margin-bottom: 30px;">
-                <button onclick="window.router.navigate('funcionarios')" style="background: none; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 6px; cursor: pointer; color: #475569; font-size: 13px;">← Voltar</button>
+                <button onclick="window.router.navigate('dashboard')" style="background: none; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 6px; cursor: pointer; color: #475569; font-size: 13px;">← Voltar</button>
                 <div>
                     <h2 style="margin: 0; font-size: 24px; color: #1a233a;">Novo Funcionário</h2>
                     <p style="color: #64748b; margin: 4px 0 0 0; font-size: 14px;">Preencha os dados e selecione os dias de férias.</p>
@@ -144,7 +144,7 @@ export function render() {
 
             <!-- Ações -->
             <div style="display:flex; justify-content:flex-end; gap:12px;">
-                <button onclick="window.router.navigate('funcionarios')" style="background:#f1f5f9; border:none; padding:12px 28px; border-radius:6px; cursor:pointer; font-size:14px; color:#475569;">Cancelar</button>
+                <button onclick="window.router.navigate('dashboard')" style="background:#f1f5f9; border:none; padding:12px 28px; border-radius:6px; cursor:pointer; font-size:14px; color:#475569;">Cancelar</button>
                 <button id="btn-guardar-func" style="background-color:#10b981; color:#fff; border:none; padding:12px 30px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px;">💾 Criar Funcionário</button>
             </div>
         </main>
@@ -381,7 +381,7 @@ export async function init() {
             alert(`Funcionário "${nome}" criado com sucesso!`);
             // Limpar estado do calendário para próxima utilização
             _calState.diasSelecionados.clear();
-            window.router.navigate('funcionarios');
+            window.router.navigate('dashboard');
         } catch (err) {
             console.error(err);
             alert('Erro ao guardar: ' + err.message);
