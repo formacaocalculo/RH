@@ -2,24 +2,13 @@
 <html lang="pt-pt">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal RH</title>
     <link rel="stylesheet" href="assets/css/shell.css">
-    <link rel="stylesheet" href="assets/css/components.css">
 </head>
 <body>
-
     <div id="app">
-        <nav id="sidebar">
-            <ul>
-                <li><a href="#" onclick="router.navigate('dashboard')">Dashboard</a></li>
-                </ul>
-        </nav>
-        
-        <main id="content">
-            <h1>Bem-vindo</h1>
-        </main>
-
-        <button id="btn-close" style="display:none;" onclick="router.goBack()">Voltar ao Início</button>
+        <!-- Os módulos injetam aqui o seu próprio layout completo (sidebar + main) -->
     </div>
 
     <script type="module" src="assets/js/router.js"></script>
