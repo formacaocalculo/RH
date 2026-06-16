@@ -52,9 +52,14 @@ export function render() {
                     </div>
                     <label style="display:block; margin-bottom:10px; font-weight:500; color:#475569;">Feriados (Selecionar quais são obrigatórios):</label>
                     <div id="lista-feriados-linhas" style="max-height: 320px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background-color: #f8fafc; margin-bottom: 15px;"></div>
-                    <div style="margin-top: auto;">
+                    <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">Feriados Locais (Município)</label>
                         <input type="text" id="cal-feriados-locais" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;" placeholder="Ex: 24/06 (São João)">
+                    </div>
+                    <div style="margin-top: auto;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:#475569;">🏖️ Limite Anual de Dias de Férias</label>
+                        <input type="number" id="cal-limite-ferias" min="1" max="60" value="22" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing: border-box;">
+                        <small style="color:#94a3b8; font-size:12px;">Número máximo de dias de férias por funcionário por ano (legal mínimo: 22).</small>
                     </div>
                 </div>
             </div>
@@ -136,6 +141,7 @@ export async function init() {
             document.getElementById('empresa-nif').value = dados.nif || '';
             document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
             if (dados.ano) inputAno.value = dados.ano;
+            if (dados.limiteDiasFerias) document.getElementById('cal-limite-ferias').value = dados.limiteDiasFerias;
             feriadosAtivosGuardados = dados.feriadosAtivos || [];
         }
     } catch (error) { console.error("Erro ao carregar do Firebase:", error); }
@@ -161,7 +167,8 @@ export async function init() {
                 nif: document.getElementById('empresa-nif').value,
                 ano: inputAno.value,
                 feriadosLocais: document.getElementById('cal-feriados-locais').value,
-                feriadosAtivos: selecionados
+                feriadosAtivos: selecionados,
+                limiteDiasFerias: parseInt(document.getElementById('cal-limite-ferias').value) || 22
             });
             alert("Parâmetros atualizados com sucesso!");
         } catch (error) { alert("Erro ao salvar: " + error.message); }
