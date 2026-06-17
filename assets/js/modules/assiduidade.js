@@ -38,7 +38,37 @@ function contaComoFaltaAssiduidade(tipo) {
     return tipo === 'falta_injustificada' || tipo === 'baixa_medica' || tipo === 'falta_justificada';
 }
 
-// ─── Estado ───────────────────────────────────────────────────────────────────
+// ─── Motivos legais de Falta Justificada (Código do Trabalho) ────────────────
+// Art.º 249.º/250.º do CT — lista taxativa de motivos que justificam a ausência.
+// Qualquer motivo fora desta lista é, por definição legal, considerado injustificado.
+const MOTIVOS_FALTA_JUSTIFICADA = [
+    { id: 'casamento',          dias: 15,  label: 'Casamento (até 15 dias seguidos)',
+      base: 'Art.º 249.º, n.º 2, al. a) CT' },
+    { id: 'falecimento',        dias: null, label: 'Falecimento de cônjuge, parente ou afim',
+      base: 'Art.º 249.º, n.º 2, al. b) e Art.º 251.º CT' },
+    { id: 'prova_ensino',       dias: null, label: 'Prestação de prova em estabelecimento de ensino',
+      base: 'Art.º 249.º, n.º 2, al. c) e Art.º 91.º CT' },
+    { id: 'facto_nao_imputavel',dias: null, label: 'Impossibilidade de prestar trabalho por facto não imputável (doença, acidente, PMA, obrigação legal)',
+      base: 'Art.º 249.º, n.º 2, al. d) CT' },
+    { id: 'assistencia_familia',dias: null, label: 'Assistência inadiável a filho, neto ou membro do agregado familiar',
+      base: 'Art.º 249.º, n.º 2, al. e) e Art.os 49.º, 50.º e 252.º CT' },
+    { id: 'acompanhamento_parto',dias: null, label: 'Acompanhamento de grávida deslocada para realização de parto',
+      base: 'Art.º 249.º, n.º 2, al. f) CT' },
+    { id: 'situacao_educativa', dias: null, label: 'Deslocação a estabelecimento de ensino por motivo educativo (até 4h/trimestre)',
+      base: 'Art.º 249.º, n.º 2, al. g) CT' },
+    { id: 'luto_gestacional',   dias: null, label: 'Luto gestacional',
+      base: 'Art.º 249.º, n.º 2, al. h) e Art.º 38.º-A CT' },
+    { id: 'representante_trab', dias: null, label: 'Trabalhador eleito para estrutura de representação coletiva',
+      base: 'Art.º 249.º, n.º 2, al. i) e Art.º 409.º CT' },
+    { id: 'candidato_publico',  dias: null, label: 'Candidato a cargo público (lei eleitoral)',
+      base: 'Art.º 249.º, n.º 2, al. j) CT' },
+    { id: 'autorizada_empregador', dias: null, label: 'Autorizada ou aprovada pelo empregador',
+      base: 'Art.º 249.º, n.º 2, al. k) CT' },
+    { id: 'outra_lei',          dias: null, label: 'Outra falta que por lei seja considerada justificada',
+      base: 'Art.º 249.º, n.º 2, al. l) CT' },
+];
+
+
 let S = {
     funcId: null,
     func: null,
@@ -160,6 +190,14 @@ export function render() {
                                     <option value="consulta_sem_justif">⚠️ Consulta (sem justif.)</option>
                                     <option value="aniversario">🎂 Dia de Aniversário (dispensa empresa)</option>
                                 </select>
+                            </div>
+                            <div id="aus-motivo-wrap" style="margin-bottom:12px;display:none;">
+                                <label style="display:block;margin-bottom:5px;font-weight:500;color:#475569;font-size:12px;">Motivo Legal (Código do Trabalho)</label>
+                                <select id="aus-motivo" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;">
+                                    ${MOTIVOS_FALTA_JUSTIFICADA.map(m => `<option value="${m.id}">${m.label}</option>`).join('')}
+                                    <option value="__fora_lista__">⚠️ Nenhum dos motivos acima (fora da lista legal)</option>
+                                </select>
+                                <small id="aus-motivo-base" style="display:block;margin-top:4px;color:#94a3b8;font-size:10.5px;"></small>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
                                 <div>
@@ -358,6 +396,9 @@ function renderLista() {
     el.innerHTML = aus.sort((a,b) => b.dataInicio.localeCompare(a.dataInicio)).map(a => {
         const t = TIPOS_LABEL[a.tipo] || { label: a.tipo, cor:'#94a3b8', emoji:'?' };
         const sub = temSubsidioRefeicao(a.tipo) ? '🍽️ Sub. Refeição' : '—';
+        const motivoHtml = a.motivoLabel
+            ? `<br>⚖️ ${a.motivoLabel}${a.motivoBase ? ` <span style="color:#94a3b8;">(${a.motivoBase})</span>` : ''}`
+            : '';
         return `
         <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;position:relative;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -367,6 +408,7 @@ function renderLista() {
             </div>
             <div style="font-size:11px;color:#475569;">
                 📅 ${formatDate(a.dataInicio)} → ${formatDate(a.dataFim)}
+                ${motivoHtml}
                 ${a.nota ? `<br>📝 ${a.nota}` : ''}
                 <br><span style="color:#64748b;">Sub. refeição: ${sub}</span>
             </div>
@@ -381,21 +423,41 @@ function formatDate(ds) {
 
 // ─── Regra exibida no formulário ──────────────────────────────────────────────
 function atualizarRegra() {
-    const tipo = document.getElementById('aus-tipo')?.value;
-    const el   = document.getElementById('aus-regra');
-    const nota = document.getElementById('aus-nota-wrap');
+    const tipo        = document.getElementById('aus-tipo')?.value;
+    const el          = document.getElementById('aus-regra');
+    const nota        = document.getElementById('aus-nota-wrap');
+    const motivoWrap  = document.getElementById('aus-motivo-wrap');
+    const motivoBase  = document.getElementById('aus-motivo-base');
+    const motivoSel   = document.getElementById('aus-motivo');
     if (!el) return;
 
+    // Mostrar/ocultar selector de motivo legal apenas para Falta Justificada
+    if (motivoWrap) motivoWrap.style.display = (tipo === 'falta_justificada') ? 'block' : 'none';
+
     const regras = {
-        falta_justificada:    { cor:'#fef3c7', txt:'#92400e', borda:'#f59e0b', msg:'📋 Assiduidade: <b>desconta</b>. Subsídio Refeição: <b>não tem direito</b>.' },
-        falta_injustificada:  { cor:'#fee2e2', txt:'#991b1b', borda:'#ef4444', msg:'❌ Assiduidade: <b>desconta</b>. Subsídio Refeição: <b>não tem direito</b>.' },
+        falta_justificada:    { cor:'#fef3c7', txt:'#92400e', borda:'#f59e0b', msg:'📋 Falta justificada nos termos do art.º 249.º do Código do Trabalho. Assiduidade: <b>desconta</b>. Subsídio Refeição: <b>não tem direito</b>.' },
+        falta_injustificada:  { cor:'#fee2e2', txt:'#991b1b', borda:'#ef4444', msg:'❌ Qualquer falta não prevista no art.º 249.º, n.º 2 do CT é considerada injustificada. Assiduidade: <b>desconta</b>. Subsídio Refeição: <b>não tem direito</b>.' },
         baixa_medica:         { cor:'#ede9fe', txt:'#4c1d95', borda:'#8b5cf6', msg:'🏥 Assiduidade: <b>desconta</b>. Subsídio Refeição: <b>não tem direito</b>.' },
         consulta_justificada: { cor:'#dbeafe', txt:'#1e3a8a', borda:'#3b82f6', msg:'🩺 Assiduidade: <b>presente</b> (parte do dia). Subsídio Refeição: <b>tem direito</b> (com justificação).' },
         consulta_sem_justif:  { cor:'#ffedd5', txt:'#7c2d12', borda:'#f97316', msg:'⚠️ Assiduidade: <b>presente</b>. Subsídio Refeição: <b>não tem direito</b> (sem justificação).' },
         aniversario:          { cor:'#fce7f3', txt:'#831843', borda:'#ec4899', msg:'🎂 <b>Não é falta</b>. Assiduidade: <b>presente</b>. Subsídio Refeição: <b>não tem direito</b>.' },
     };
 
-    const r = regras[tipo];
+    let r = regras[tipo];
+
+    // Se for falta justificada e o motivo escolhido estiver fora da lista legal, reclassifica visualmente como injustificada
+    if (tipo === 'falta_justificada' && motivoSel) {
+        const motivoId = motivoSel.value;
+        if (motivoId === '__fora_lista__') {
+            r = { cor:'#fee2e2', txt:'#991b1b', borda:'#ef4444',
+                  msg:'⚠️ Motivo fora da lista taxativa do art.º 249.º, n.º 2 do CT — a falta será registada como <b>Falta Injustificada</b>. Assiduidade: <b>desconta</b>. Subsídio Refeição: <b>não tem direito</b>.' };
+            if (motivoBase) motivoBase.textContent = '';
+        } else {
+            const m = MOTIVOS_FALTA_JUSTIFICADA.find(x => x.id === motivoId);
+            if (motivoBase) motivoBase.textContent = m ? m.base : '';
+        }
+    }
+
     if (r) {
         el.style.cssText = `background:${r.cor};border:1px solid ${r.borda};border-radius:6px;padding:10px;font-size:11px;color:${r.txt};margin-bottom:12px;`;
         el.innerHTML = r.msg;
@@ -403,18 +465,49 @@ function atualizarRegra() {
     if (nota) nota.style.display = 'block';
 }
 
+
 // ─── Registar ausência ────────────────────────────────────────────────────────
 window._ausRegistar = async function() {
-    const tipo   = document.getElementById('aus-tipo').value;
+    let tipo     = document.getElementById('aus-tipo').value;
     const inicio = document.getElementById('aus-inicio').value;
     const fim    = document.getElementById('aus-fim').value;
     const nota   = document.getElementById('aus-nota').value;
+    const motivoSel = document.getElementById('aus-motivo');
 
     if (!inicio || !fim) { alert('Por favor preencha as datas de início e fim.'); return; }
     if (fim < inicio)    { alert('A data de fim não pode ser anterior à data de início.'); return; }
 
+    let motivoId = null, motivoLabel = null, motivoBase = null;
+
+    if (tipo === 'falta_justificada') {
+        motivoId = motivoSel ? motivoSel.value : null;
+
+        if (motivoId === '__fora_lista__') {
+            // Motivo fora da lista taxativa do art.º 249.º, n.º 2 CT → reclassifica como injustificada
+            tipo = 'falta_injustificada';
+            motivoId = null;
+        } else {
+            const m = MOTIVOS_FALTA_JUSTIFICADA.find(x => x.id === motivoId);
+            if (m) {
+                motivoLabel = m.label;
+                motivoBase  = m.base;
+
+                // Validação do limite de 15 dias seguidos para falta por casamento
+                if (m.id === 'casamento') {
+                    const dIni = new Date(inicio + 'T00:00:00');
+                    const dFim = new Date(fim + 'T00:00:00');
+                    const numDias = Math.round((dFim - dIni) / 86400000) + 1;
+                    if (numDias > 15) {
+                        alert('A falta por motivo de casamento é justificada apenas até 15 dias seguidos (art.º 249.º, n.º 2, al. a) CT). Por favor ajuste o período.');
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     const id = `${S.funcId}_${Date.now()}`;
-    const nova = { id, tipo, dataInicio: inicio, dataFim: fim, nota };
+    const nova = { id, tipo, dataInicio: inicio, dataFim: fim, nota, motivoId, motivoLabel, motivoBase };
     S.ausencias.push(nova);
 
     await guardarAusencias();
@@ -426,6 +519,7 @@ window._ausRegistar = async function() {
     document.getElementById('aus-fim').value = '';
     document.getElementById('aus-nota').value = '';
 };
+
 
 window._ausEliminar = async function(id) {
     if (!confirm('Eliminar este registo de ausência?')) return;
@@ -536,6 +630,10 @@ export async function init() {
 
     // Tipo de ausência → actualiza regra
     document.getElementById('aus-tipo').addEventListener('change', atualizarRegra);
+
+    // Motivo legal (falta justificada) → actualiza regra/base legal exibida
+    const motivoSel = document.getElementById('aus-motivo');
+    if (motivoSel) motivoSel.addEventListener('change', atualizarRegra);
 
     // Data início → preenche data fim automaticamente
     document.getElementById('aus-inicio').addEventListener('change', e => {
