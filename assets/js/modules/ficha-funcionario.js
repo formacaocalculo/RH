@@ -2,6 +2,7 @@
 import { db } from '../app.js';
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { calcularDireitoFerias, feriadosPortugal } from './ferias-utils.js';
+import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState } from './colaborador-utils.js';
 
 // calcularDireitoFerias e feriadosPortugal importados de ferias-utils.js
 
@@ -37,7 +38,7 @@ function renderCal() {
     let h = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">`;
 
     DIAS_SEMANA.forEach(d =>
-        h += `<div style="text-align:center;font-size:11px;font-weight:bold;color:#94a3b8;padding:5px 0;">${d}</div>`
+        h += `<div style="text-align:center;font-size:11px;font-weight:bold;color:var(--rh-text-subtle);padding:5px 0;">${d}</div>`
     );
     for (let i = 0; i < primeiroDia; i++) h += `<div></div>`;
 
@@ -51,17 +52,17 @@ function renderCal() {
         const isMarcado  = diasFerias.has(ds);
         const isHoje     = hoje.getFullYear()===S.ano && hoje.getMonth()===S.mes && hoje.getDate()===dia;
 
-        let bg='#fff', border='1px solid #e2e8f0', color='#1e293b', cursor='pointer', title='';
+        let bg='var(--rh-bg-card)', border='1px solid var(--rh-border)', color='var(--rh-primary-dark)', cursor='pointer', title='';
 
-        if (isWeekend)  { bg='#f8fafc'; color='#cbd5e1'; cursor='default'; }
-        if (isFeriado)  { bg='#fee2e2'; border='1px solid #fca5a5'; color='#991b1b'; cursor='default'; title='Feriado'; }
+        if (isWeekend)  { bg='var(--rh-bg-muted)'; color='var(--rh-border)'; cursor='default'; }
+        if (isFeriado)  { bg='var(--rh-danger-bg)'; border='1px solid var(--rh-danger-dark)'; color='var(--rh-danger-text)'; cursor='default'; title='Feriado'; }
 
         // estados de férias sobrepõem-se (gozado > marcado)
-        if (isGozado)        { bg='#fecaca'; border='2px solid #ef4444'; color='#7f1d1d'; cursor='pointer'; title='Gozado — clique para desmarcar'; }
-        else if (isMarcado)  { bg='#bbf7d0'; border='2px solid #22c55e'; color='#14532d'; cursor='pointer'; title='Marcado — clique para marcar como gozado'; }
+        if (isGozado)        { bg='var(--rh-danger-bg)'; border='2px solid var(--rh-danger)'; color='var(--rh-danger-text)'; cursor='pointer'; title='Gozado — clique para desmarcar'; }
+        else if (isMarcado)  { bg='var(--rh-success-bg)'; border='2px solid var(--rh-success)'; color='var(--rh-success-text)'; cursor='pointer'; title='Marcado — clique para marcar como gozado'; }
         else if (!isWeekend && !isFeriado) { title='Clique para marcar como férias'; }
 
-        if (isHoje) border = (isGozado||isMarcado) ? border : '2px solid #3b82f6';
+        if (isHoje) border = (isGozado||isMarcado) ? border : '2px solid var(--rh-primary)';
 
         const clickable = !isWeekend && !isFeriado;
         const onclick = clickable ? `window._fichaToggle('${ds}')` : '';
@@ -101,18 +102,18 @@ function renderLista() {
     const gozSet      = new Set((S.func.diasGozados || []).filter(d => d.startsWith(anoStr)));
 
     if (!diasFerias.length) {
-        cont.innerHTML = `<p style="color:#94a3b8;font-style:italic;margin:0;font-size:13px;">Nenhum dia marcado em ${S.ano}.</p>`;
+        cont.innerHTML = `<p style="color:var(--rh-text-subtle);font-style:italic;margin:0;font-size:13px;">Nenhum dia marcado em ${S.ano}.</p>`;
         return;
     }
     cont.innerHTML = diasFerias.map(d => {
         const g = gozSet.has(d);
         const fmt = new Date(d+'T00:00:00').toLocaleDateString('pt-PT',{day:'2-digit',month:'long',weekday:'short'});
         const badge = g
-            ? `<span style="background:#fecaca;color:#991b1b;padding:2px 9px;border-radius:10px;font-size:11px;">Gozado</span>`
-            : `<span style="background:#bbf7d0;color:#14532d;padding:2px 9px;border-radius:10px;font-size:11px;">Marcado</span>`;
+            ? `<span style="background:var(--rh-danger-bg);color:var(--rh-danger-text);padding:2px 9px;border-radius:10px;font-size:11px;">Gozado</span>`
+            : `<span style="background:var(--rh-success-bg);color:var(--rh-success-text);padding:2px 9px;border-radius:10px;font-size:11px;">Marcado</span>`;
         return `<div style="display:flex;justify-content:space-between;align-items:center;
-                            padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
-            <span style="color:#1e293b;">${fmt}</span>${badge}</div>`;
+                            padding:6px 0;border-bottom:1px solid var(--rh-bg-muted);font-size:12px;">
+            <span style="color:var(--rh-primary-dark);">${fmt}</span>${badge}</div>`;
     }).join('');
 }
 
@@ -178,26 +179,58 @@ window._fichaChangeAno = function(v) {
     renderCal();
 };
 
+window._fichaGuardarFilhos = async function() {
+    const btn = document.getElementById('btn-guardar-filhos');
+    if (!btn || !S.funcId) return;
+    btn.textContent = 'A guardar…'; btn.disabled = true;
+    try {
+        const filhos = obterFilhosState('ficha');
+        await updateDoc(doc(db, 'funcionarios', S.funcId), { filhos });
+        S.func.filhos = filhos;
+        btn.textContent = '✔ Guardado!';
+        setTimeout(() => { btn.textContent = '💾 Guardar Filhos'; btn.disabled = false; }, 2000);
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        btn.textContent = '💾 Guardar Filhos'; btn.disabled = false;
+    }
+};
+
+window._fichaGuardarHorario = async function() {
+    const btn = document.getElementById('btn-guardar-horario');
+    if (!btn || !S.funcId) return;
+    btn.textContent = 'A guardar…'; btn.disabled = true;
+    try {
+        const horarioTrabalho = lerHorarioTrabalhoDoForm('ficha');
+        await updateDoc(doc(db, 'funcionarios', S.funcId), { horarioTrabalho });
+        S.func.horarioTrabalho = horarioTrabalho;
+        btn.textContent = '✔ Guardado!';
+        setTimeout(() => { btn.textContent = '💾 Guardar Horário'; btn.disabled = false; }, 2000);
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        btn.textContent = '💾 Guardar Horário'; btn.disabled = false;
+    }
+};
+
 // ─── render() ─────────────────────────────────────────────────────────────────
 export function render() {
     return `
-    <div style="display:flex;min-height:100vh;background:#f4f6f9;font-family:sans-serif;">
+    <div style="display:flex;min-height:100vh;background:var(--rh-bg);font-family:sans-serif;">
 
         <!-- Sidebar -->
-        <aside style="width:260px;background:#1a233a;color:#fff;padding:20px;flex-shrink:0;">
+        <aside style="width:260px;background:var(--rh-primary);color:var(--rh-bg-card);padding:20px;flex-shrink:0;">
             <div style="display:flex;align-items:center;margin-bottom:30px;">
-                <div style="background:#3b82f6;padding:8px;border-radius:8px;margin-right:10px;">🏢</div>
-                <div><h3 style="margin:0;font-size:16px;">Portal RH</h3><small style="color:#8a99ad;">Gestão de Vencimentos</small></div>
+                <div style="background:var(--rh-primary-light);padding:8px;border-radius:8px;margin-right:10px;">🏢</div>
+                <div><h3 style="margin:0;font-size:16px;">Portal RH</h3><small style="color:var(--rh-text-subtle);">Gestão de Vencimentos</small></div>
             </div>
             <nav>
-                <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:0 0 8px 0;">Principal</p>
-                <button onclick="window.router.navigate('dashboard')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📊 Dashboard</button>
-                <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Gestão</p>
-                <button onclick="window.router.navigate('funcionarios')" style="display:block;width:100%;text-align:left;background:#3b82f6;color:#fff;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;font-weight:bold;">👥 Colaboradores</button>
-                <button onclick="window.router.navigate('criar-funcionario')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">➕ Novo Funcionário</button>
-                <button onclick="window.router.navigate('assiduidade')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📅 Assiduidade</button>
-                <p style="color:#4f5d73;font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
-                <button onclick="window.router.navigate('parametrizacao')" style="display:block;width:100%;text-align:left;background:none;color:#8a99ad;padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">⚙️ Parametrização</button>
+                <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:0 0 8px 0;">Principal</p>
+                <button onclick="window.router.navigate('dashboard')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📊 Dashboard</button>
+                <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Gestão</p>
+                <button onclick="window.router.navigate('funcionarios')" style="display:block;width:100%;text-align:left;background:var(--rh-primary);color:var(--rh-bg-card);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;font-weight:bold;">👥 Colaboradores</button>
+                <button onclick="window.router.navigate('criar-funcionario')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">➕ Novo Funcionário</button>
+                <button onclick="window.router.navigate('assiduidade')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📅 Assiduidade</button>
+                <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
+                <button onclick="window.router.navigate('parametrizacao')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">⚙️ Parametrização</button>
             </nav>
         </aside>
 
@@ -207,94 +240,110 @@ export function render() {
             <!-- Header -->
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
                 <button onclick="window.router.navigate('funcionarios')"
-                    style="background:none;border:1px solid #cbd5e1;padding:7px 14px;border-radius:6px;cursor:pointer;color:#475569;font-size:13px;">← Colaboradores</button>
+                    style="background:none;border:1px solid var(--rh-border);padding:7px 14px;border-radius:6px;cursor:pointer;color:var(--rh-text-muted);font-size:13px;">← Colaboradores</button>
                 <div style="flex:1;">
-                    <h2 id="ficha-titulo" style="margin:0;font-size:21px;color:#1a233a;">Ficha do Colaborador</h2>
-                    <p id="ficha-sub" style="margin:3px 0 0;font-size:13px;color:#64748b;">A carregar…</p>
+                    <h2 id="ficha-titulo" style="margin:0;font-size:21px;color:var(--rh-primary);">Ficha do Colaborador</h2>
+                    <p id="ficha-sub" style="margin:3px 0 0;font-size:13px;color:var(--rh-text-muted);">A carregar…</p>
                 </div>
                 <button onclick="window.router.navigate('dashboard')"
-                    style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">✕ Fechar</button>
+                    style="background:var(--rh-bg-muted);color:var(--rh-text-muted);border:1px solid var(--rh-border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">✕ Fechar</button>
             </div>
 
             <!-- KPIs -->
             <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;">
                 ${[
-                    ['kpi-direito',     '#3b82f6', 'Direito',      'dias este ano'],
-                    ['kpi-marcados',    '#22c55e', 'Marcados',     'férias planeadas'],
-                    ['kpi-gozados',     '#ef4444', 'Gozados',      'já concluídos'],
-                    ['kpi-porgozar',    '#f59e0b', 'Por gozar',    'marcados p/ gozar'],
+                    ['kpi-direito',     'var(--rh-primary)', 'Direito',      'dias este ano'],
+                    ['kpi-marcados',    'var(--rh-success)', 'Marcados',     'férias planeadas'],
+                    ['kpi-gozados',     'var(--rh-danger)', 'Gozados',      'já concluídos'],
+                    ['kpi-porgozar',    'var(--rh-warning)', 'Por gozar',    'marcados p/ gozar'],
                     ['kpi-disponiveis', '#8b5cf6', 'Disponíveis',  'ainda por marcar'],
                 ].map(([id,cor,label,sub]) => `
-                <div style="background:#fff;padding:16px;border-radius:10px;border-top:3px solid ${cor};
+                <div style="background:var(--rh-bg-card);padding:16px;border-radius:10px;border-top:3px solid ${cor};
                             box-shadow:0 2px 4px rgba(0,0,0,0.04);text-align:center;">
-                    <div style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:bold;margin-bottom:5px;">${label}</div>
-                    <div id="${id}" style="font-size:28px;font-weight:bold;color:#1a233a;">—</div>
-                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${sub}</div>
+                    <div style="font-size:10px;color:var(--rh-text-muted);text-transform:uppercase;font-weight:bold;margin-bottom:5px;">${label}</div>
+                    <div id="${id}" style="font-size:28px;font-weight:bold;color:var(--rh-primary);">—</div>
+                    <div style="font-size:11px;color:var(--rh-text-subtle);margin-top:2px;">${sub}</div>
                 </div>`).join('')}
             </div>
 
-            <!-- Corpo: calendário + painel direito -->
-            <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
+            <!-- Dados Pessoais -->
+            <div style="background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);margin-bottom:18px;">
+                <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-primary);padding-bottom:7px;">👤 Dados Pessoais</h4>
+                <div id="ficha-pessoais" style="font-size:12px;color:var(--rh-text-muted);line-height:1.9;"></div>
+            </div>
 
-                <!-- Calendário -->
-                <div style="background:#fff;padding:22px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-                        <h4 style="margin:0;color:#1a233a;font-size:15px;">🗓️ Calendário de Férias</h4>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <select id="ficha-sel-ano" onchange="window._fichaChangeAno(this.value)"
-                                style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff;"></select>
-                            <button id="cal-prev" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 11px;cursor:pointer;font-size:14px;">‹</button>
-                            <span id="ficha-cal-label" style="font-weight:bold;font-size:13px;color:#1a233a;min-width:125px;text-align:center;"></span>
-                            <button id="cal-next" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 11px;cursor:pointer;font-size:14px;">›</button>
-                        </div>
-                    </div>
-
-                    <div id="ficha-cal" style="user-select:none;"></div>
-
-                    <!-- Legenda -->
-                    <div style="display:flex;gap:14px;margin-top:12px;font-size:11px;color:#64748b;flex-wrap:wrap;">
-                        <span><i style="display:inline-block;width:11px;height:11px;background:#bbf7d0;border:1px solid #22c55e;border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Marcado</span>
-                        <span><i style="display:inline-block;width:11px;height:11px;background:#fecaca;border:1px solid #ef4444;border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Gozado</span>
-                        <span><i style="display:inline-block;width:11px;height:11px;background:#fee2e2;border:1px solid #fca5a5;border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Feriado</span>
-                        <span><i style="display:inline-block;width:11px;height:11px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Fim de semana</span>
-                    </div>
-                    <p style="font-size:11px;color:#94a3b8;margin:8px 0 0;">
-                        💡 1.º clique = marcar (🟢) · 2.º clique = gozado (🔴) · 3.º clique = remover
-                    </p>
-
-                    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-                        <button onclick="window._fichaMarcarPassados()"
-                            style="background:#f1f5f9;border:1px solid #cbd5e1;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;color:#475569;">
-                            ✔ Marcar passados como gozados
-                        </button>
-                        <button id="btn-guardar" onclick="window._fichaGuardar()"
-                            style="margin-left:auto;background:#10b981;color:#fff;border:none;padding:8px 20px;
-                                   border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">
-                            💾 Guardar
-                        </button>
+            <!-- Calendário (largura total) -->
+            <div style="background:var(--rh-bg-card);padding:22px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);margin-bottom:18px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+                    <h4 style="margin:0;color:var(--rh-primary);font-size:15px;">🗓️ Calendário de Férias</h4>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <select id="ficha-sel-ano" onchange="window._fichaChangeAno(this.value)"
+                            style="padding:5px 10px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;background:var(--rh-bg-card);"></select>
+                        <button id="cal-prev" style="background:var(--rh-bg-muted);border:none;border-radius:6px;padding:5px 11px;cursor:pointer;font-size:14px;">‹</button>
+                        <span id="ficha-cal-label" style="font-weight:bold;font-size:13px;color:var(--rh-primary);min-width:125px;text-align:center;"></span>
+                        <button id="cal-next" style="background:var(--rh-bg-muted);border:none;border-radius:6px;padding:5px 11px;cursor:pointer;font-size:14px;">›</button>
                     </div>
                 </div>
 
-                <!-- Painel direito -->
-                <div style="display:flex;flex-direction:column;gap:16px;">
+                <div id="ficha-cal" style="user-select:none;"></div>
 
-                    <!-- Dados pessoais -->
-                    <div style="background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
-                        <h4 style="margin:0 0 14px;color:#1a233a;font-size:13px;border-bottom:2px solid #3b82f6;padding-bottom:7px;">👤 Dados Pessoais</h4>
-                        <div id="ficha-pessoais" style="font-size:12px;color:#475569;line-height:1.9;"></div>
-                    </div>
+                <!-- Legenda -->
+                <div style="display:flex;gap:14px;margin-top:12px;font-size:11px;color:var(--rh-text-muted);flex-wrap:wrap;">
+                    <span><i style="display:inline-block;width:11px;height:11px;background:var(--rh-success-bg);border:1px solid var(--rh-success);border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Marcado</span>
+                    <span><i style="display:inline-block;width:11px;height:11px;background:var(--rh-danger-bg);border:1px solid var(--rh-danger);border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Gozado</span>
+                    <span><i style="display:inline-block;width:11px;height:11px;background:var(--rh-danger-bg);border:1px solid var(--rh-danger-dark);border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Feriado</span>
+                    <span><i style="display:inline-block;width:11px;height:11px;background:var(--rh-bg-muted);border:1px solid var(--rh-border);border-radius:2px;vertical-align:middle;margin-right:3px;"></i>Fim de semana</span>
+                </div>
+                <p style="font-size:11px;color:var(--rh-text-subtle);margin:8px 0 0;">
+                    💡 1.º clique = marcar (🟢) · 2.º clique = gozado (🔴) · 3.º clique = remover
+                </p>
 
-                    <!-- Dados profissionais -->
-                    <div style="background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
-                        <h4 style="margin:0 0 14px;color:#1a233a;font-size:13px;border-bottom:2px solid #10b981;padding-bottom:7px;">💼 Dados Profissionais</h4>
-                        <div id="ficha-prof" style="font-size:12px;color:#475569;line-height:1.9;"></div>
-                    </div>
+                <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+                    <button onclick="window._fichaMarcarPassados()"
+                        style="background:var(--rh-bg-muted);border:1px solid var(--rh-border);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--rh-text-muted);">
+                        ✔ Marcar passados como gozados
+                    </button>
+                    <button id="btn-guardar" onclick="window._fichaGuardar()"
+                        style="margin-left:auto;background:var(--rh-secondary);color:var(--rh-bg-card);border:none;padding:8px 20px;
+                               border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">
+                        💾 Guardar
+                    </button>
+                </div>
+            </div>
 
-                    <!-- Lista de dias -->
-                    <div style="background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
-                        <h4 style="margin:0 0 14px;color:#1a233a;font-size:13px;border-bottom:2px solid #f59e0b;padding-bottom:7px;">📋 Dias Marcados</h4>
-                        <div id="ficha-lista" style="max-height:200px;overflow-y:auto;"></div>
-                    </div>
+            <!-- Filhos · Horário · Dados Profissionais · Dias Marcados (lado a lado) -->
+            <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+
+                <!-- Filhos / Dependentes -->
+                <div style="flex:1 1 0;min-width:260px;background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                    <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-secondary);padding-bottom:7px;">👶 Filhos / Dependentes</h4>
+                    ${renderFilhosSection('ficha')}
+                    <button id="btn-guardar-filhos" onclick="window._fichaGuardarFilhos()"
+                        style="width:100%;margin-top:8px;background:var(--rh-secondary);color:var(--rh-bg-card);border:none;padding:9px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">
+                        💾 Guardar Filhos
+                    </button>
+                </div>
+
+                <!-- Horário de Trabalho -->
+                <div style="flex:1 1 0;min-width:260px;background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                    <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-secondary);padding-bottom:7px;">⏰ Horário de Trabalho</h4>
+                    ${renderHorarioTrabalho('ficha')}
+                    <button id="btn-guardar-horario" onclick="window._fichaGuardarHorario()"
+                        style="width:100%;margin-top:4px;background:var(--rh-secondary);color:var(--rh-bg-card);border:none;padding:9px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">
+                        💾 Guardar Horário
+                    </button>
+                </div>
+
+                <!-- Dados profissionais -->
+                <div style="flex:1 1 0;min-width:260px;background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                    <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-secondary);padding-bottom:7px;">💼 Dados Profissionais</h4>
+                    <div id="ficha-prof" style="font-size:12px;color:var(--rh-text-muted);line-height:1.9;"></div>
+                </div>
+
+                <!-- Lista de dias -->
+                <div style="flex:1 1 0;min-width:260px;background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                    <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-warning);padding-bottom:7px;">📋 Dias Marcados</h4>
+                    <div id="ficha-lista" style="max-height:200px;overflow-y:auto;"></div>
                 </div>
             </div>
         </main>
@@ -335,6 +384,18 @@ export async function init() {
         S.func = { id: fs.id, ...fs.data() };
     } catch(e) { alert('Erro: ' + e.message); return; }
 
+    // Inicializar estado de filhos (lista dinâmica) com os já guardados
+    inicializarFilhosState('ficha', S.func.filhos || []);
+
+    // Preencher campos do horário de trabalho com os dados guardados
+    const horario = S.func.horarioTrabalho || {};
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    setVal('ficha-hor-entrada', horario.entrada);
+    setVal('ficha-hor-saida', horario.saida);
+    setVal('ficha-hor-almoco-inicio', horario.almocoInicio);
+    setVal('ficha-hor-almoco-fim', horario.almocoFim);
+    window._colabRecalcularHorario('ficha');
+
     const f = S.func;
     S.direitoAno = calcularDireitoFerias(f.admissao, S.ano, S.limiteDiasFerias);
 
@@ -344,6 +405,7 @@ export async function init() {
         `NIF: ${f.nif||'—'}  ·  ${f.cargo||''}  ·  Admissão: ${f.admissao ? new Date(f.admissao+'T00:00:00').toLocaleDateString('pt-PT') : '—'}`;
 
     // Dados pessoais
+    const nFilhos = (f.filhos || []).length;
     document.getElementById('ficha-pessoais').innerHTML = [
         ['Nome', f.nome],
         ['NIF', f.nif],
@@ -351,16 +413,22 @@ export async function init() {
         ['Morada', f.morada],
         ['Contacto', f.contacto],
         ['Email', f.email],
-        ['NIB/IBAN', f.nib || '<span style="color:#f59e0b;">⚠️ Em falta</span>'],
+        ['NIB/IBAN', f.nib || '<span style="color:var(--rh-warning);">⚠️ Em falta</span>'],
+        ['Nº Filhos', nFilhos > 0 ? `${nFilhos} (ver secção abaixo)` : '0'],
     ].map(([k,v]) => `<div><strong>${k}:</strong> ${v||'—'}</div>`).join('');
 
     // Dados prof
+    const h = f.horarioTrabalho || {};
+    const horarioResumo = (h.entrada && h.saida)
+        ? `${h.entrada} – ${h.saida}${h.almocoInicio && h.almocoFim ? ` (almoço ${h.almocoInicio}-${h.almocoFim})` : ''} · ${h.totalHoras || 0}h/dia`
+        : null;
     document.getElementById('ficha-prof').innerHTML = [
         ['Cargo', f.cargo],
         ['Departamento', f.departamento],
         ['Admissão', f.admissao ? new Date(f.admissao+'T00:00:00').toLocaleDateString('pt-PT') : null],
         ['Salário Base', f.salarioBase ? f.salarioBase.toLocaleString('pt-PT',{style:'currency',currency:'EUR'}) : null],
         ['Categoria IRS', f.categoriaIRS],
+        ['Horário', horarioResumo],
     ].map(([k,v]) => `<div><strong>${k}:</strong> ${v||'—'}</div>`).join('');
 
     // Selector de ano

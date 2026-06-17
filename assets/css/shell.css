@@ -1,5 +1,59 @@
 /* assets/css/shell.css */
 
+/* ─── Paleta de Cores do Portal RH ──────────────────────────────────────────
+   Aplica a regra 60-30-10 e as recomendações WCAG (contraste ≥ 4.5:1).
+   60% fundo neutro · 30% cor primária (navegação/elementos principais) · 10% destaque (CTAs)
+*/
+:root {
+    /* Primária — Azul Profundo / Navy: autoridade, estabilidade, confiança */
+    --rh-primary:        #1B2A4A;
+    --rh-primary-dark:   #101A30;
+    --rh-primary-light:  #6B89C2;
+    --rh-primary-soft:   #E8EDF6; /* fundo suave com tom primário, para hovers/seleções */
+
+    /* Secundária — Verde Petróleo / Menta: crescimento, equilíbrio, lado humano do RH */
+    --rh-secondary:       #1F7A6C;
+    --rh-secondary-dark:  #155C51;
+    --rh-secondary-light: #4FB3A0;
+    --rh-secondary-soft:  #E3F4F0;
+
+    /* Destaque — Coral / Laranja Suave: usar com moderação, só em CTAs */
+    --rh-accent:       #FF8966;
+    --rh-accent-dark:  #E8693F;
+    --rh-accent-soft:  #FFE9E1;
+
+    /* Fundo — Off-White / Cinza muito claro: reduz fadiga visual vs. branco puro */
+    --rh-bg:        #F7F8FA;
+    --rh-bg-card:   #FFFFFF;
+    --rh-bg-muted:  #EEF1F5;
+
+    /* Texto — Cinza escuro (quase preto): contraste confortável, menos agressivo que preto puro */
+    --rh-text:        #232A35;
+    --rh-text-muted:  #5B6473;
+    --rh-text-subtle: #8993A4;
+
+    /* Bordas / divisores */
+    --rh-border: #DDE3EA;
+    --rh-border-strong: #C7CFDA;
+
+    /* Cores funcionais / semânticas */
+    --rh-success:      #1F9D55;
+    --rh-success-bg:   #E5F7EC;
+    --rh-success-text: #166534;
+
+    --rh-warning:      #D97706;
+    --rh-warning-bg:   #FEF3E2;
+    --rh-warning-text: #92400E;
+
+    --rh-danger:      #DC3545;
+    --rh-danger-bg:   #FCE8EA;
+    --rh-danger-text: #991B2C;
+
+    --rh-info:      #2563EB;
+    --rh-info-bg:   #E8EFFD;
+    --rh-info-text: #1E3A8A;
+}
+
 /* Reset básico para evitar conflitos com os layouts dos módulos */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -9,6 +63,8 @@ body {
     margin: 0;
     padding: 0;
     font-family: sans-serif;
+    background: var(--rh-bg);
+    color: var(--rh-text);
 }
 
 /* O #app é apenas um contentor neutro — os módulos trazem o seu próprio layout */
