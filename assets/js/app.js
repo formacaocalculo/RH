@@ -13,7 +13,13 @@ export const db = getFirestore(app);
 // Escuta a autenticação e faz o redirecionamento
 onAuthStateChanged(auth, (user) => {
     // ESTA É A LINHA DO LOG PARA DEBUGAR
-    console.log("Estado de autenticação mudou. Utilizador detetado:", user); 
+    console.log("Estado de autenticação mudou. Utilizador detetado:", user);
+
+    // Durante a reautenticação por password usada para confirmar eliminações
+    // (ver seguranca-dados.js), o Firebase dispara este evento outra vez para o
+    // mesmo utilizador. Nesse caso não navegamos, para não interromper o ecrã
+    // onde a pessoa estava a trabalhar.
+    if (window._suprimirRedirecionoAuth) return;
 
     if (user) {
         // Se logado, vai para o dashboard

@@ -2,6 +2,62 @@
 // Utilitários partilhados entre criar-funcionario.js e ficha-funcionario.js
 // para o horário de trabalho e a gestão de filhos/dependentes do colaborador.
 
+import { eliminarComBackup } from './seguranca-dados.js';
+
+// ─── Habilitações Literárias / Quadro Nacional de Qualificações (QNQ) ──────
+export const NIVEIS_QUALIFICACAO = [
+    { valor: 'nivel1', label: 'Nível 1 — 2.º ciclo do Ensino Básico (5.º e 6.º anos)' },
+    { valor: 'nivel2', label: 'Nível 2 — 3.º ciclo do Ensino Básico (7.º, 8.º e 9.º anos)' },
+    { valor: 'nivel3', label: 'Nível 3 — Ensino Secundário (geral ou prosseguimento de estudos)' },
+    { valor: 'nivel4', label: 'Nível 4 — Ensino Secundário (dupla certificação / estágio profissional)' },
+    { valor: 'nivel5', label: 'Nível 5 — Qualificação pós-secundária não superior (ex.: CET)' },
+    { valor: 'nivel6', label: 'Nível 6 — Licenciatura' },
+    { valor: 'nivel7', label: 'Nível 7 — Mestrado' },
+    { valor: 'nivel8', label: 'Nível 8 — Doutoramento' },
+];
+
+export function labelQualificacao(valor) {
+    return NIVEIS_QUALIFICACAO.find(n => n.valor === valor)?.label || null;
+}
+
+export function renderSelectQualificacao(id, valorAtual = '') {
+    return `
+        <select id="${id}" style="width:100%;padding:10px;border:1px solid var(--rh-border);border-radius:6px;box-sizing:border-box;font-size:14px;background:var(--rh-bg-card);">
+            <option value="">— Selecionar —</option>
+            ${NIVEIS_QUALIFICACAO.map(n => `<option value="${n.valor}" ${n.valor === valorAtual ? 'selected' : ''}>${n.label}</option>`).join('')}
+        </select>`;
+}
+
+// ─── Estado Civil ────────────────────────────────────────────────────────────
+export const ESTADOS_CIVIS = [
+    { valor: 'solteiro', label: 'Solteiro(a)' },
+    { valor: 'casado', label: 'Casado(a)' },
+    { valor: 'uniao_facto', label: 'União de facto' },
+    { valor: 'divorciado', label: 'Divorciado(a)' },
+    { valor: 'viuvo', label: 'Viúvo(a)' },
+    { valor: 'separado_judicialmente', label: 'Separado(a) judicialmente' },
+];
+
+export function labelEstadoCivil(valor) {
+    return ESTADOS_CIVIS.find(e => e.valor === valor)?.label || null;
+}
+
+export function renderSelectEstadoCivil(id, valorAtual = '') {
+    return `
+        <select id="${id}" style="width:100%;padding:10px;border:1px solid var(--rh-border);border-radius:6px;box-sizing:border-box;font-size:14px;background:var(--rh-bg-card);">
+            <option value="">— Selecionar —</option>
+            ${ESTADOS_CIVIS.map(e => `<option value="${e.valor}" ${e.valor === valorAtual ? 'selected' : ''}>${e.label}</option>`).join('')}
+        </select>`;
+}
+
+// ─── Validação de NIB / IBAN ────────────────────────────────────────────────
+// Aceita NIB português (21 dígitos) ou IBAN PT (25 chars: PT50 + 21 dígitos)
+export function validarNIB(nib) {
+    if (!nib) return false;
+    const clean = nib.replace(/\s/g, '');
+    return /^\d{21}$/.test(clean) || /^PT\d{23}$/.test(clean);
+}
+
 // ─── Horário de Trabalho ────────────────────────────────────────────────────
 // horario = { entrada, saida, almocoInicio, almocoFim, totalHoras }
 // totalHoras é sempre derivado (entrada→saída menos almoço); nunca editado manualmente.
@@ -159,12 +215,18 @@ function _filhoLinhaHTML(prefix, filho) {
 
 // Estado dos filhos por prefixo (permite usar o mesmo módulo em criar-funcionario e ficha-funcionario)
 const _filhosState = {};
+const _contextoFunc = {}; // { [prefix]: { funcId, nomeFunc } } — necessário para o backup ao eliminar
+
+export function definirContextoFuncionario(prefix, funcId, nomeFunc) {
+    _contextoFunc[prefix] = { funcId, nomeFunc };
+}
 
 export function inicializarFilhosState(prefix, filhosIniciais = []) {
     _filhosState[prefix] = filhosIniciais.map(f => ({
         id: f.id || novoFilhoId(),
         nascimento: f.nascimento || '',
         grauIncapacidade: f.grauIncapacidade ?? null,
+        _persistido: true, // já existia gravado no Firestore antes desta sessão de edição
     }));
     _renderFilhosLista(prefix);
 }
@@ -193,8 +255,31 @@ window._colabAddFilho = function(prefix) {
     _renderFilhosLista(prefix);
 };
 
-window._colabRemoveFilho = function(prefix, filhoId) {
+window._colabRemoveFilho = async function(prefix, filhoId) {
     if (!_filhosState[prefix]) return;
+    const filho = _filhosState[prefix].find(f => f.id === filhoId);
+    if (!filho) return;
+
+    if (filho._persistido) {
+        // Filho já gravado no Firestore: exige reautenticação e cria backup antes de remover.
+        const ctx = _contextoFunc[prefix] || {};
+        const ok = await eliminarComBackup({
+            colecao: 'funcionarios',
+            docId: ctx.funcId || prefix,
+            dados: { id: filho.id, nascimento: filho.nascimento, grauIncapacidade: filho.grauIncapacidade },
+            tipo: 'filho',
+            descricao: `Filho de ${ctx.nomeFunc || ctx.funcId || prefix} (nascido ${filho.nascimento || '—'})`,
+            subcampo: { campo: 'filhos' },
+            mensagemConfirmacao: 'Este filho/dependente será removido da ficha do colaborador e fica guardado na lixeira. Introduza a sua password para confirmar.',
+            onUpdateDoc: async () => {
+                // A remoção real do array "filhos" só é persistida quando o utilizador
+                // clicar em "Guardar Filhos" — aqui apenas confirmamos a intenção e
+                // registamos o backup; a remoção do estado local ocorre a seguir.
+            },
+        });
+        if (!ok) return;
+    }
+
     _filhosState[prefix] = _filhosState[prefix].filter(f => f.id !== filhoId);
     _renderFilhosLista(prefix);
 };

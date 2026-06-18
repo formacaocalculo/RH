@@ -4,6 +4,7 @@ import {
     collection, getDocs, doc, getDoc, setDoc, query, where
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { feriadosPortugal } from './ferias-utils.js';
+import { eliminarComBackup } from './seguranca-dados.js';
 
 // ─── Tipos de ausência ────────────────────────────────────────────────────────
 // Cada ausência guardada no Firestore em "ausencias/{funcId}" tem a forma:
@@ -287,6 +288,7 @@ let S = {
     feriados: new Set(),
     subsidioRefeicao: 0,
     horasMinSubsidio: 0,    // mínimo de horas/dia para manter direito ao subsídio em faltas parciais
+    _editandoId: null,      // id da ausência atualmente em edição no formulário (null = a criar nova)
 };
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
@@ -316,6 +318,7 @@ function sidebar(ativo) {
             ${btn('assiduidade','📅 Assiduidade')}
             <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px;">Configurações</p>
             ${btn('parametrizacao','⚙️ Parametrização')}
+            ${btn('lixeira','🗑️ Lixo / Repor Dados')}
         </nav>
     </aside>`;
 }
@@ -422,10 +425,16 @@ export function render() {
                                 <input type="text" id="aus-nota" placeholder="Opcional" style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;">
                             </div>
                             <div id="aus-regra" style="background:var(--rh-success-bg);border:1px solid var(--rh-success-bg);border-radius:6px;padding:10px;font-size:11px;color:var(--rh-success-text);margin-bottom:12px;"></div>
-                            <button onclick="window._ausRegistar()"
-                                style="width:100%;background:var(--rh-accent);color:var(--rh-text);border:none;padding:10px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">
-                                💾 Guardar Ausência
-                            </button>
+                            <div style="display:flex;gap:8px;">
+                                <button id="aus-btn-registar" onclick="window._ausRegistar()"
+                                    style="flex:1;background:var(--rh-accent);color:var(--rh-text);border:none;padding:10px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">
+                                    💾 Guardar Ausência
+                                </button>
+                                <button id="aus-btn-cancelar-edicao" onclick="window._ausCancelarEdicao()"
+                                    style="display:none;background:var(--rh-bg-muted);color:var(--rh-text-muted);border:1px solid var(--rh-border);padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">
+                                    Cancelar
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Lista de ausências registadas -->
@@ -640,8 +649,12 @@ function renderLista() {
         <div style="border:1px solid var(--rh-border);border-radius:8px;padding:10px 12px;margin-bottom:8px;position:relative;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                 <span style="font-size:12px;font-weight:bold;color:${t.cor};">${t.emoji} ${t.label}</span>
-                <button onclick="window._ausEliminar('${a.id}')"
-                    style="background:none;border:none;cursor:pointer;color:var(--rh-text-subtle);font-size:14px;padding:0 2px;" title="Eliminar">✕</button>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="window._ausEditar('${a.id}')"
+                        style="background:none;border:none;cursor:pointer;color:var(--rh-text-subtle);font-size:13px;padding:0 2px;" title="Editar">✏️</button>
+                    <button onclick="window._ausEliminar('${a.id}')"
+                        style="background:none;border:none;cursor:pointer;color:var(--rh-text-subtle);font-size:14px;padding:0 2px;" title="Eliminar">✕</button>
+                </div>
             </div>
             <div style="font-size:11px;color:var(--rh-text-muted);">
                 📅 ${periodoTxt}
@@ -706,7 +719,8 @@ window._ausRegistar = async function() {
         }
     }
 
-    const nova = { id: `${S.funcId}_${Date.now()}`, tipo, dataInicio: inicio, dataFim: fim, nota };
+    const editandoId = S._editandoId || null;
+    const nova = { id: editandoId || `${S.funcId}_${Date.now()}`, tipo, dataInicio: inicio, dataFim: fim, nota };
     if (usaHora(tipo)) { nova.horaInicio = horaInicio; nova.horaFim = horaFim; }
 
     // ─── Validação de limite legal (aviso, não bloqueio) ───
@@ -725,7 +739,7 @@ window._ausRegistar = async function() {
                 if (!seguir) return;
             }
         } else if (def.limite.periodo) {
-            const { usado } = calcularUsoAcumulado(tipo, inicio, null);
+            const { usado } = calcularUsoAcumulado(tipo, inicio, editandoId);
             const total = usado + novaQtd;
             if (total > def.limite.valor) {
                 const seguir = confirm(
@@ -741,7 +755,17 @@ window._ausRegistar = async function() {
         }
     }
 
-    S.ausencias.push(nova);
+    if (editandoId) {
+        const idx = S.ausencias.findIndex(a => a.id === editandoId);
+        if (idx >= 0) S.ausencias[idx] = nova;
+        S._editandoId = null;
+        const btn = document.getElementById('aus-btn-registar');
+        if (btn) btn.textContent = '💾 Guardar Ausência';
+        const cancelBtn = document.getElementById('aus-btn-cancelar-edicao');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+    } else {
+        S.ausencias.push(nova);
+    }
 
     await guardarAusencias();
     renderCal();
@@ -756,11 +780,65 @@ window._ausRegistar = async function() {
 };
 
 window._ausEliminar = async function(id) {
-    if (!confirm('Eliminar este registo de ausência?')) return;
-    S.ausencias = S.ausencias.filter(a => a.id !== id);
-    await guardarAusencias();
-    renderCal();
-    renderLista();
+    const registo = S.ausencias.find(a => a.id === id);
+    if (!registo) return;
+    const t = TIPOS_LABEL[registo.tipo];
+
+    await eliminarComBackup({
+        colecao: 'ausencias',
+        docId: S.funcId,
+        dados: registo,
+        tipo: 'ausencia',
+        descricao: `${t?.label || registo.tipo} — ${S.func?.nome || S.funcId} (${formatDate(registo.dataInicio)} → ${formatDate(registo.dataFim)})`,
+        subcampo: { campo: 'ausencias' },
+        mensagemConfirmacao: 'Esta ausência será eliminada e fica guardada na lixeira (Lixo / Repor Dados). Introduza a sua password para confirmar.',
+        onUpdateDoc: async () => {
+            S.ausencias = S.ausencias.filter(a => a.id !== id);
+            await setDoc(doc(db, 'ausencias', S.funcId), { ausencias: S.ausencias });
+        },
+        aoConcluir: () => {
+            renderCal();
+            renderLista();
+        },
+    });
+};
+
+// Carrega uma ausência existente de novo no formulário para edição.
+// Ao guardar, o registo antigo é substituído (em vez de criar um novo).
+window._ausEditar = function(id) {
+    const registo = S.ausencias.find(a => a.id === id);
+    if (!registo) return;
+
+    document.getElementById('aus-tipo').value = registo.tipo;
+    atualizarRegra();
+    document.getElementById('aus-inicio').value = registo.dataInicio;
+    document.getElementById('aus-fim').value = registo.dataFim;
+    document.getElementById('aus-nota').value = registo.nota || '';
+    if (usaHora(registo.tipo)) {
+        if (document.getElementById('aus-hora-inicio')) document.getElementById('aus-hora-inicio').value = registo.horaInicio || '';
+        if (document.getElementById('aus-hora-fim'))    document.getElementById('aus-hora-fim').value = registo.horaFim || '';
+    }
+
+    S._editandoId = id;
+    const btn = document.getElementById('aus-btn-registar');
+    if (btn) btn.textContent = '💾 Guardar Alterações';
+    const cancelBtn = document.getElementById('aus-btn-cancelar-edicao');
+    if (cancelBtn) cancelBtn.style.display = 'inline-block';
+
+    document.getElementById('aus-tipo').scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+};
+
+window._ausCancelarEdicao = function() {
+    S._editandoId = null;
+    document.getElementById('aus-inicio').value = '';
+    document.getElementById('aus-fim').value = '';
+    document.getElementById('aus-nota').value = '';
+    if (document.getElementById('aus-hora-inicio')) document.getElementById('aus-hora-inicio').value = '';
+    if (document.getElementById('aus-hora-fim'))    document.getElementById('aus-hora-fim').value = '';
+    const btn = document.getElementById('aus-btn-registar');
+    if (btn) btn.textContent = '💾 Guardar Ausência';
+    const cancelBtn = document.getElementById('aus-btn-cancelar-edicao');
+    if (cancelBtn) cancelBtn.style.display = 'none';
 };
 
 async function guardarAusencias() {
@@ -772,6 +850,7 @@ async function guardarAusencias() {
 // ─── Carregar colaborador ─────────────────────────────────────────────────────
 async function carregarFunc(funcId) {
     S.funcId = funcId;
+    S._editandoId = null;
 
     // Dados do colaborador
     const fs = await getDoc(doc(db, 'funcionarios', funcId));

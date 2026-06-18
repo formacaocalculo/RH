@@ -1,7 +1,7 @@
 // assets/js/modules/criar-funcionario.js
 import { db } from '../app.js';
 import { collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState } from './colaborador-utils.js';
+import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB } from './colaborador-utils.js';
 
 export function render() {
     return `
@@ -23,6 +23,7 @@ export function render() {
                 <button onclick="window.router.navigate('assiduidade')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;">📅 Assiduidade</button>
                 <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Parametrização</button>
+                <button onclick="window.router.navigate('lixeira')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">🗑️ Lixo / Repor Dados</button>
             </nav>
         </aside>
 
@@ -58,6 +59,10 @@ export function render() {
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Data de Nascimento</label>
                         <input type="date" id="func-nascimento" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">💍 Estado Civil</label>
+                        ${renderSelectEstadoCivil('func-estado-civil')}
                     </div>
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Morada</label>
@@ -106,6 +111,10 @@ export function render() {
                             <option value="casado2">Casado(a) — 2 titulares</option>
                             <option value="monoparental">Família monoparental</option>
                         </select>
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">🎓 Habilitações Literárias</label>
+                        ${renderSelectQualificacao('func-qualificacao')}
                     </div>
 
                     <hr style="border:none; border-top:1px solid var(--rh-border); margin: 18px 0;">
@@ -168,11 +177,7 @@ function validarNIF(nif) {
     return /^\d{9}$/.test(nif);
 }
 
-function validarNIB(nib) {
-    // Aceita NIB (21 dígitos) ou IBAN PT (25 chars: PT50 + 21 dígitos)
-    const clean = nib.replace(/\s/g, '');
-    return /^\d{21}$/.test(clean) || /^PT\d{23}$/.test(clean);
-}
+// validarNIB importado de colaborador-utils.js (partilhado com a ficha do colaborador)
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -368,11 +373,13 @@ export async function init() {
             contacto:     document.getElementById('func-contacto').value.trim(),
             email:        document.getElementById('func-email').value.trim(),
             nascimento:   document.getElementById('func-nascimento').value || null,
+            estadoCivil:  document.getElementById('func-estado-civil').value || null,
             cargo:        document.getElementById('func-cargo').value.trim(),
             departamento: document.getElementById('func-departamento').value.trim(),
             admissao,
             salarioBase:  salario,
             categoriaIRS: document.getElementById('func-irs').value,
+            qualificacao: document.getElementById('func-qualificacao').value || null,
             diasFerias:   Array.from(_calState.diasSelecionados).sort(),
             filhos:       obterFilhosState('novo'),
             horarioTrabalho: lerHorarioTrabalhoDoForm('novo'),

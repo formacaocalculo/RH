@@ -18,6 +18,7 @@ export function render() {
                 <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">📊 Dashboard</button>
                 <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px; font-weight: bold;">⚙️ Parametrização</button>
+                <button onclick="window.router.navigate('lixeira')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">🗑️ Lixo / Repor Dados</button>
             </nav>
         </aside>
 

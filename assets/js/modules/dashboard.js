@@ -27,6 +27,7 @@ export function render() {
                 
                 <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Parametrização</button>
+                <button onclick="window.router.navigate('lixeira')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">🗑️ Lixo / Repor Dados</button>
             </nav>
         </aside>
 

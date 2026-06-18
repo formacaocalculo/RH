@@ -1,8 +1,9 @@
 // assets/js/modules/funcionarios.js
 import { db } from '../app.js';
-import { collection, getDocs, doc, getDoc, query, where }
+import { collection, getDocs, doc, getDoc, deleteDoc, query, where }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { calcularDireitoFerias } from './ferias-utils.js';
+import { eliminarComBackup } from './seguranca-dados.js';
 
 // ─── Sidebar partilhada ───────────────────────────────────────────────────────
 function sidebar(ativo = 'funcionarios') {
@@ -35,6 +36,7 @@ function sidebar(ativo = 'funcionarios') {
             ${btn('recibos','📄','Recibos')}
             <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
             ${btn('parametrizacao','⚙️','Parametrização')}
+            ${btn('lixeira','🗑️','Lixo / Repor Dados')}
         </nav>
     </aside>`;
 }
@@ -81,10 +83,11 @@ export function render() {
                             <th style="padding:13px 16px;text-align:center;" title="Dias de férias a que tem direito este ano">Direito</th>
                             <th style="padding:13px 16px;text-align:center;" title="Dias marcados (gozados)">Marcados</th>
                             <th style="padding:13px 16px;text-align:center;" title="Dias ainda disponíveis para marcar">Disponíveis</th>
+                            <th style="padding:13px 16px;text-align:center;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-func">
-                        <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--rh-text-subtle);font-style:italic;">
+                        <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--rh-text-subtle);font-style:italic;">
                             A carregar…
                         </td></tr>
                     </tbody>
@@ -115,6 +118,37 @@ window._funcFiltrar = function () {
 window._abrirFicha = function (id) {
     window._fichaFuncId = id;
     window.router.navigate('ficha-funcionario');
+};
+
+window._funcEliminar = async function (id) {
+    const f = _lista.find(x => x.id === id);
+    if (!f) return;
+
+    // Junta também as ausências associadas, para que o backup permita repor tudo de uma vez.
+    let ausenciasAssociadas = null;
+    try {
+        const ausSnap = await getDoc(doc(db, 'ausencias', id));
+        if (ausSnap.exists()) ausenciasAssociadas = ausSnap.data();
+    } catch (e) { /* sem ausências, ignora */ }
+
+    const dadosCompletos = { funcionario: f, ausencias: ausenciasAssociadas };
+
+    await eliminarComBackup({
+        colecao: 'funcionarios',
+        docId: id,
+        dados: dadosCompletos,
+        tipo: 'funcionario',
+        descricao: `${f.nome || id} (NIF ${f.nif || '—'})`,
+        mensagemConfirmacao: `O colaborador "${f.nome}" e o seu histórico de ausências serão eliminados. Os dados ficam guardados na lixeira (Lixo / Repor Dados). Introduza a sua password para confirmar.`,
+        onUpdateDoc: async () => {
+            await deleteDoc(doc(db, 'funcionarios', id));
+            if (ausenciasAssociadas) await deleteDoc(doc(db, 'ausencias', id));
+        },
+        aoConcluir: () => {
+            _lista = _lista.filter(x => x.id !== id);
+            _renderTabela(_lista);
+        },
+    });
 };
 
 // ─── Render tabela ────────────────────────────────────────────────────────────
@@ -172,6 +206,12 @@ function _renderTabela(lista) {
             <td style="padding:12px 16px;text-align:center;font-weight:bold;color:var(--rh-primary);font-size:16px;">${direito}</td>
             <td style="padding:12px 16px;text-align:center;">${marcBadge}</td>
             <td style="padding:12px 16px;text-align:center;">${dispBadge}</td>
+            <td style="padding:12px 16px;text-align:center;" onclick="event.stopPropagation()">
+                <button onclick="window._abrirFicha('${f.id}')" title="Editar"
+                    style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;">✏️</button>
+                <button onclick="window._funcEliminar('${f.id}')" title="Eliminar"
+                    style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:var(--rh-danger);">🗑️</button>
+            </td>
         </tr>`;
     }).join('');
 }

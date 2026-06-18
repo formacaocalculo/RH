@@ -1,8 +1,9 @@
 // assets/js/modules/ficha-funcionario.js
 import { db } from '../app.js';
-import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { calcularDireitoFerias, feriadosPortugal } from './ferias-utils.js';
-import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState } from './colaborador-utils.js';
+import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, definirContextoFuncionario, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB } from './colaborador-utils.js';
+import { eliminarComBackup } from './seguranca-dados.js';
 
 // calcularDireitoFerias e feriadosPortugal importados de ferias-utils.js
 
@@ -211,6 +212,99 @@ window._fichaGuardarHorario = async function() {
     }
 };
 
+window._fichaGuardarPessoais = async function() {
+    const btn = document.getElementById('btn-guardar-pessoais');
+    if (!btn || !S.funcId) return;
+
+    const nome = document.getElementById('ficha-pess-nome').value.trim();
+    const nif = document.getElementById('ficha-pess-nif').value.trim();
+    const nascimento = document.getElementById('ficha-pess-nascimento').value || null;
+    const estadoCivil = document.getElementById('ficha-pess-estado-civil').value || null;
+    const morada = document.getElementById('ficha-pess-morada').value.trim();
+    const contacto = document.getElementById('ficha-pess-contacto').value.trim();
+    const email = document.getElementById('ficha-pess-email').value.trim();
+    const nib = document.getElementById('ficha-pess-nib').value.trim();
+
+    if (!nome) { alert('O nome completo é obrigatório.'); return; }
+    if (!nif || !/^\d{9}$/.test(nif)) { alert('O NIF deve ter 9 dígitos.'); return; }
+
+    btn.textContent = 'A guardar…'; btn.disabled = true;
+    try {
+        const nibValido = nib !== '' && validarNIB(nib);
+        const dadosPess = { nome, nif, nascimento, estadoCivil, morada, contacto, email, nib, nibValido };
+        await updateDoc(doc(db, 'funcionarios', S.funcId), dadosPess);
+        Object.assign(S.func, dadosPess);
+        document.getElementById('ficha-titulo').textContent = S.func.nome || 'Colaborador';
+        document.getElementById('ficha-sub').textContent =
+            `NIF: ${S.func.nif||'—'}  ·  ${S.func.cargo||''}  ·  Admissão: ${S.func.admissao ? new Date(S.func.admissao+'T00:00:00').toLocaleDateString('pt-PT') : '—'}`;
+        btn.textContent = '✔ Guardado!';
+        setTimeout(() => { btn.textContent = '💾 Guardar Dados Pessoais'; btn.disabled = false; }, 2000);
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        btn.textContent = '💾 Guardar Dados Pessoais'; btn.disabled = false;
+    }
+};
+
+window._fichaGuardarProfissionais = async function() {
+    const btn = document.getElementById('btn-guardar-prof');
+    if (!btn || !S.funcId) return;
+
+    const cargo = document.getElementById('ficha-prof-cargo').value.trim();
+    const departamento = document.getElementById('ficha-prof-departamento').value.trim();
+    const admissao = document.getElementById('ficha-prof-admissao').value;
+    const salarioBase = parseFloat(document.getElementById('ficha-prof-salario').value) || 0;
+    const categoriaIRS = document.getElementById('ficha-prof-irs').value;
+    const qualificacao = document.getElementById('ficha-prof-qualificacao').value || null;
+
+    if (!admissao) { alert('A data de admissão é obrigatória.'); return; }
+
+    btn.textContent = 'A guardar…'; btn.disabled = true;
+    try {
+        const dadosProf = { cargo, departamento, admissao, salarioBase, categoriaIRS, qualificacao };
+        await updateDoc(doc(db, 'funcionarios', S.funcId), dadosProf);
+        Object.assign(S.func, dadosProf);
+        // O direito a férias depende da data de admissão: recalcula caso tenha mudado
+        S.direitoAno = calcularDireitoFerias(S.func.admissao, S.ano, S.limiteDiasFerias);
+        renderCal();
+        document.getElementById('ficha-sub').textContent =
+            `NIF: ${S.func.nif||'—'}  ·  ${S.func.cargo||''}  ·  Admissão: ${S.func.admissao ? new Date(S.func.admissao+'T00:00:00').toLocaleDateString('pt-PT') : '—'}`;
+        btn.textContent = '✔ Guardado!';
+        setTimeout(() => { btn.textContent = '💾 Guardar Dados Profissionais'; btn.disabled = false; }, 2000);
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        btn.textContent = '💾 Guardar Dados Profissionais'; btn.disabled = false;
+    }
+};
+
+window._fichaEliminarFuncionario = async function() {
+    if (!S.funcId || !S.func) return;
+
+    // Junta as ausências associadas ao mesmo backup, para permitir reposição completa.
+    let ausenciasAssociadas = null;
+    try {
+        const ausSnap = await getDoc(doc(db, 'ausencias', S.funcId));
+        if (ausSnap.exists()) ausenciasAssociadas = ausSnap.data();
+    } catch (e) { /* sem ausências, ignora */ }
+
+    const ok = await eliminarComBackup({
+        colecao: 'funcionarios',
+        docId: S.funcId,
+        dados: { funcionario: S.func, ausencias: ausenciasAssociadas },
+        tipo: 'funcionario',
+        descricao: `${S.func.nome || S.funcId} (NIF ${S.func.nif || '—'})`,
+        mensagemConfirmacao: `O colaborador "${S.func.nome}" e o seu histórico de ausências serão eliminados. Os dados ficam guardados na lixeira (Lixo / Repor Dados). Introduza a sua password para confirmar.`,
+        onUpdateDoc: async () => {
+            await deleteDoc(doc(db, 'funcionarios', S.funcId));
+            if (ausenciasAssociadas) await deleteDoc(doc(db, 'ausencias', S.funcId));
+        },
+    });
+
+    if (ok) {
+        alert('Colaborador eliminado. Os dados ficam disponíveis em "Lixo / Repor Dados".');
+        window.router.navigate('funcionarios');
+    }
+};
+
 // ─── render() ─────────────────────────────────────────────────────────────────
 export function render() {
     return `
@@ -231,6 +325,7 @@ export function render() {
                 <button onclick="window.router.navigate('assiduidade')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📅 Assiduidade</button>
                 <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
                 <button onclick="window.router.navigate('parametrizacao')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">⚙️ Parametrização</button>
+                <button onclick="window.router.navigate('lixeira')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">🗑️ Lixo / Repor Dados</button>
             </nav>
         </aside>
 
@@ -245,6 +340,8 @@ export function render() {
                     <h2 id="ficha-titulo" style="margin:0;font-size:21px;color:var(--rh-primary);">Ficha do Colaborador</h2>
                     <p id="ficha-sub" style="margin:3px 0 0;font-size:13px;color:var(--rh-text-muted);">A carregar…</p>
                 </div>
+                <button onclick="window._fichaEliminarFuncionario()"
+                    style="background:var(--rh-danger-bg);color:var(--rh-danger-text);border:1px solid var(--rh-danger);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">🗑️ Eliminar</button>
                 <button onclick="window.router.navigate('dashboard')"
                     style="background:var(--rh-bg-muted);color:var(--rh-text-muted);border:1px solid var(--rh-border);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">✕ Fechar</button>
             </div>
@@ -269,7 +366,52 @@ export function render() {
             <!-- Dados Pessoais -->
             <div style="background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);margin-bottom:18px;">
                 <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-primary);padding-bottom:7px;">👤 Dados Pessoais</h4>
-                <div id="ficha-pessoais" style="font-size:12px;color:var(--rh-text-muted);line-height:1.9;"></div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:14px;">
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Nome Completo</label>
+                        <input type="text" id="ficha-pess-nome" placeholder="Ex: Ana Silva"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">NIF</label>
+                        <input type="text" id="ficha-pess-nif" placeholder="9 dígitos"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Data de Nascimento</label>
+                        <input type="date" id="ficha-pess-nascimento"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">💍 Estado Civil</label>
+                        <div id="ficha-pess-estado-civil-wrap"></div>
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Morada</label>
+                        <input type="text" id="ficha-pess-morada" placeholder="Rua, número, localidade"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Contacto Telefónico</label>
+                        <input type="text" id="ficha-pess-contacto" placeholder="9XX XXX XXX"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Email</label>
+                        <input type="email" id="ficha-pess-email" placeholder="colaborador@empresa.pt"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">NIB / IBAN</label>
+                        <input type="text" id="ficha-pess-nib" maxlength="25" placeholder="PT50 XXXX XXXX XXXX XXXX XXXX X"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                </div>
+                <div style="font-size:11px;color:var(--rh-text-subtle);margin-bottom:10px;" id="ficha-pess-filhos-info"></div>
+                <button id="btn-guardar-pessoais" onclick="window._fichaGuardarPessoais()"
+                    style="background:var(--rh-secondary);color:var(--rh-bg-card);border:none;padding:9px 20px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">
+                    💾 Guardar Dados Pessoais
+                </button>
             </div>
 
             <!-- Calendário (largura total) -->
@@ -337,7 +479,47 @@ export function render() {
                 <!-- Dados profissionais -->
                 <div style="flex:1 1 0;min-width:260px;background:var(--rh-bg-card);padding:20px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
                     <h4 style="margin:0 0 14px;color:var(--rh-primary);font-size:13px;border-bottom:2px solid var(--rh-secondary);padding-bottom:7px;">💼 Dados Profissionais</h4>
-                    <div id="ficha-prof" style="font-size:12px;color:var(--rh-text-muted);line-height:1.9;"></div>
+
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Cargo / Função</label>
+                        <input type="text" id="ficha-prof-cargo" placeholder="Ex: Técnico de RH"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Departamento</label>
+                        <input type="text" id="ficha-prof-departamento" placeholder="Ex: Recursos Humanos"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Data de Admissão</label>
+                        <input type="date" id="ficha-prof-admissao"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Salário Base Bruto (€)</label>
+                        <input type="number" id="ficha-prof-salario" min="0" step="0.01" placeholder="0.00"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Categoria IRS</label>
+                        <select id="ficha-prof-irs" style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;background:var(--rh-bg-card);">
+                            <option value="NHR">Não Habitual (NHR)</option>
+                            <option value="solteiro">Solteiro(a) sem dependentes</option>
+                            <option value="casado1">Casado(a) — 1 titular</option>
+                            <option value="casado2">Casado(a) — 2 titulares</option>
+                            <option value="monoparental">Família monoparental</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">🎓 Habilitações Literárias</label>
+                        <div id="ficha-prof-qualificacao-wrap" style="font-size:12px;"></div>
+                    </div>
+                    <div style="font-size:11px;color:var(--rh-text-subtle);margin-bottom:8px;" id="ficha-prof-horario-info"></div>
+
+                    <button id="btn-guardar-prof" onclick="window._fichaGuardarProfissionais()"
+                        style="width:100%;margin-top:4px;background:var(--rh-secondary);color:var(--rh-bg-card);border:none;padding:9px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:12px;">
+                        💾 Guardar Dados Profissionais
+                    </button>
                 </div>
 
                 <!-- Lista de dias -->
@@ -385,6 +567,7 @@ export async function init() {
     } catch(e) { alert('Erro: ' + e.message); return; }
 
     // Inicializar estado de filhos (lista dinâmica) com os já guardados
+    definirContextoFuncionario('ficha', S.funcId, S.func.nome);
     inicializarFilhosState('ficha', S.func.filhos || []);
 
     // Preencher campos do horário de trabalho com os dados guardados
@@ -396,6 +579,16 @@ export async function init() {
     setVal('ficha-hor-almoco-fim', horario.almocoFim);
     window._colabRecalcularHorario('ficha');
 
+    // Preencher campos editáveis de Dados Profissionais com os dados guardados
+    setVal('ficha-prof-cargo', S.func.cargo);
+    setVal('ficha-prof-departamento', S.func.departamento);
+    setVal('ficha-prof-admissao', S.func.admissao);
+    setVal('ficha-prof-salario', S.func.salarioBase);
+    setVal('ficha-prof-irs', S.func.categoriaIRS || 'solteiro');
+    document.getElementById('ficha-prof-qualificacao-wrap').innerHTML = renderSelectQualificacao('ficha-prof-qualificacao', S.func.qualificacao || '');
+    const horarioInfoEl = document.getElementById('ficha-prof-horario-info');
+    if (horarioInfoEl) horarioInfoEl.textContent = 'O horário de trabalho é editado na secção "Horário de Trabalho".';
+
     const f = S.func;
     S.direitoAno = calcularDireitoFerias(f.admissao, S.ano, S.limiteDiasFerias);
 
@@ -404,32 +597,19 @@ export async function init() {
     document.getElementById('ficha-sub').textContent =
         `NIF: ${f.nif||'—'}  ·  ${f.cargo||''}  ·  Admissão: ${f.admissao ? new Date(f.admissao+'T00:00:00').toLocaleDateString('pt-PT') : '—'}`;
 
-    // Dados pessoais
+    // Dados pessoais — preencher campos editáveis com os dados guardados
     const nFilhos = (f.filhos || []).length;
-    document.getElementById('ficha-pessoais').innerHTML = [
-        ['Nome', f.nome],
-        ['NIF', f.nif],
-        ['Nascimento', f.nascimento ? new Date(f.nascimento+'T00:00:00').toLocaleDateString('pt-PT') : null],
-        ['Morada', f.morada],
-        ['Contacto', f.contacto],
-        ['Email', f.email],
-        ['NIB/IBAN', f.nib || '<span style="color:var(--rh-warning);">⚠️ Em falta</span>'],
-        ['Nº Filhos', nFilhos > 0 ? `${nFilhos} (ver secção abaixo)` : '0'],
-    ].map(([k,v]) => `<div><strong>${k}:</strong> ${v||'—'}</div>`).join('');
-
-    // Dados prof
-    const h = f.horarioTrabalho || {};
-    const horarioResumo = (h.entrada && h.saida)
-        ? `${h.entrada} – ${h.saida}${h.almocoInicio && h.almocoFim ? ` (almoço ${h.almocoInicio}-${h.almocoFim})` : ''} · ${h.totalHoras || 0}h/dia`
-        : null;
-    document.getElementById('ficha-prof').innerHTML = [
-        ['Cargo', f.cargo],
-        ['Departamento', f.departamento],
-        ['Admissão', f.admissao ? new Date(f.admissao+'T00:00:00').toLocaleDateString('pt-PT') : null],
-        ['Salário Base', f.salarioBase ? f.salarioBase.toLocaleString('pt-PT',{style:'currency',currency:'EUR'}) : null],
-        ['Categoria IRS', f.categoriaIRS],
-        ['Horário', horarioResumo],
-    ].map(([k,v]) => `<div><strong>${k}:</strong> ${v||'—'}</div>`).join('');
+    const setValPess = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    setValPess('ficha-pess-nome', f.nome);
+    setValPess('ficha-pess-nif', f.nif);
+    setValPess('ficha-pess-nascimento', f.nascimento);
+    setValPess('ficha-pess-morada', f.morada);
+    setValPess('ficha-pess-contacto', f.contacto);
+    setValPess('ficha-pess-email', f.email);
+    setValPess('ficha-pess-nib', f.nib);
+    document.getElementById('ficha-pess-estado-civil-wrap').innerHTML = renderSelectEstadoCivil('ficha-pess-estado-civil', f.estadoCivil || '');
+    const filhosInfoEl = document.getElementById('ficha-pess-filhos-info');
+    if (filhosInfoEl) filhosInfoEl.textContent = `Nº de Filhos: ${nFilhos} — editado na secção "Filhos / Dependentes" abaixo.`;
 
     // Selector de ano
     const anoAdm = f.admissao ? new Date(f.admissao+'T00:00:00').getFullYear() : S.ano;
