@@ -8,12 +8,16 @@
 //  4. Clica em "Publicar"
 //
 //  O que isto garante:
-//  - Cada utilizador autenticado só pode ler/escrever os seus próprios dados
-//    em utilizadores/{uid}/** (as suas empresas e tudo o que está dentro delas:
-//    funcionários, ausências, configurações, backups, alertas).
-//  - Quem estiver listado em admins/{uid} pode ler/escrever os dados de
-//    QUALQUER utilizador (necessário para a área de Administração: ver todas
-//    as empresas, "entrar" nelas para dar suporte, etc.).
+//  - Cada utilizador autenticado pode LER/CRIAR/EDITAR as suas próprias
+//    empresas e tudo o que está dentro delas (funcionários, ausências,
+//    configurações, backups, alertas) — e também ELIMINAR registos
+//    individuais (ex.: um colaborador).
+//  - ELIMINAR uma EMPRESA inteira só é permitido a ADMINISTRADORES
+//    (quem estiver listado em admins/{uid}). Nem o próprio dono da empresa
+//    a pode apagar — apenas editar.
+//  - Quem for administrador pode ler/escrever os dados de QUALQUER
+//    utilizador (necessário para a área de Administração: ver todas as
+//    empresas, "entrar" nelas para dar suporte, eliminar empresas, etc.).
 //  - A coleção "admins" só pode ser lida pelo próprio (para a app saber
 //    "sou admin?"); a ESCRITA está sempre bloqueada via app — só é editável
 //    manualmente na Firebase Console (separador Dados), por segurança, para
@@ -40,16 +44,35 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Dados de cada utilizador (e de todas as suas empresas e subcoleções):
-    // o próprio dono, OU qualquer administrador.
-    match /utilizadores/{userId}/{document=**} {
-      allow read, write: if request.auth != null &&
-                            (request.auth.uid == userId || ehAdmin());
+    function donoOuAdmin(userId) {
+      return request.auth != null &&
+             (request.auth.uid == userId || ehAdmin());
     }
 
-    // Lista de administradores: qualquer utilizador autenticado pode LER o
-    // seu próprio documento (para saber se é admin); escrita nunca é
-    // permitida via app.
+    // Documento de cada utilizador (raiz dos seus dados).
+    match /utilizadores/{userId} {
+      allow read, write: if donoOuAdmin(userId);
+
+      // A EMPRESA em si.
+      match /empresas/{empresaId} {
+        // Ler, criar e editar a empresa: o dono OU um administrador.
+        allow read, create, update: if donoOuAdmin(userId);
+
+        // ELIMINAR a empresa: SÓ administradores.
+        // (Nem o dono não-admin a consegue apagar — só editar.)
+        allow delete: if ehAdmin();
+
+        // Tudo o que está DENTRO da empresa (funcionários, ausências,
+        // configurações, backups, alertas...): o dono ou um administrador,
+        // com acesso total, incluindo eliminar registos individuais.
+        match /{document=**} {
+          allow read, write: if donoOuAdmin(userId);
+        }
+      }
+    }
+
+    // Lista de administradores: cada um só lê o seu próprio documento (para
+    // a app saber se é admin); escrita nunca é permitida via app.
     match /admins/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
