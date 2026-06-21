@@ -1,46 +1,17 @@
 // assets/js/modules/lixeira.js
-import { db, auth } from '../app.js';
 import {
-    collection, getDocs, doc, setDoc, deleteDoc, updateDoc, getDoc
+    getDocs, setDoc, deleteDoc, updateDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { colEmpresa, docEmpresa } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 let S = { backups: [] };
-
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
-function sidebar() {
-    const btn = (rota, label, ativo) => `
-        <button onclick="window.router.navigate('${rota}')"
-            style="display:block;width:100%;text-align:left;
-                   background:${ativo ? 'var(--rh-primary)' : 'none'};
-                   color:${ativo ? 'var(--rh-bg-card)' : 'var(--rh-text-subtle)'};
-                   padding:10px;border:none;cursor:pointer;font-size:14px;
-                   border-radius:6px;margin-bottom:4px;
-                   font-weight:${ativo ? 'bold' : 'normal'};">${label}</button>`;
-    return `
-    <aside style="width:260px;background:var(--rh-primary);color:var(--rh-bg-card);padding:20px;flex-shrink:0;">
-        <div style="display:flex;align-items:center;margin-bottom:30px;">
-            <div style="background:var(--rh-primary-light);padding:8px;border-radius:8px;margin-right:10px;">🏢</div>
-            <div><h3 style="margin:0;font-size:16px;">Portal RH</h3><small style="color:var(--rh-text-subtle);">Gestão de Vencimentos</small></div>
-        </div>
-        <nav>
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:0 0 8px;">Principal</p>
-            ${btn('dashboard','📊 Dashboard')}
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px;">Gestão</p>
-            ${btn('funcionarios','👥 Colaboradores')}
-            ${btn('criar-funcionario','➕ Novo Funcionário')}
-            ${btn('assiduidade','📅 Assiduidade')}
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px;">Configurações</p>
-            ${btn('parametrizacao','⚙️ Parametrização')}
-            ${btn('lixeira','🗑️ Lixo / Repor Dados', true)}
-        </nav>
-    </aside>`;
-}
 
 // ─── render() ───────────────────────────────────────────────────────────────
 export function render() {
     return `
     <div style="display:flex;min-height:100vh;background:var(--rh-bg);font-family:sans-serif;">
-        ${sidebar()}
+        ${renderSidebarHTML('lixeira')}
         <main style="flex:1;padding:28px;overflow-y:auto;">
             <div style="margin-bottom:22px;">
                 <h2 style="margin:0;font-size:21px;color:var(--rh-primary);">🗑️ Lixo / Repor Dados</h2>
@@ -71,7 +42,7 @@ export function render() {
 async function carregarBackups() {
     S.backups = [];
     try {
-        const snap = await getDocs(collection(db, 'backups'));
+        const snap = await getDocs(colEmpresa('backups'));
         snap.forEach(d => S.backups.push({ id: d.id, ...d.data() }));
     } catch (e) {
         console.error('Erro ao carregar backups:', e);
@@ -172,13 +143,13 @@ window._lixRestaurar = async function(backupId) {
     try {
         if (b.tipo === 'funcionario' && b.dados && b.dados.funcionario) {
             // Caso especial: o backup de funcionário inclui também as ausências associadas.
-            await setDoc(doc(db, b.colecaoOrigem, b.docIdOrigem), b.dados.funcionario);
+            await setDoc(docEmpresa(b.colecaoOrigem, b.docIdOrigem), b.dados.funcionario);
             if (b.dados.ausencias) {
-                await setDoc(doc(db, 'ausencias', b.docIdOrigem), b.dados.ausencias);
+                await setDoc(docEmpresa('ausencias', b.docIdOrigem), b.dados.ausencias);
             }
         } else if (b.subcampo) {
             // Restauro de um item dentro de um array de outro documento (ex: um filho)
-            const refDoc = doc(db, b.colecaoOrigem, b.docIdOrigem);
+            const refDoc = docEmpresa(b.colecaoOrigem, b.docIdOrigem);
             const snap = await getDoc(refDoc);
             if (!snap.exists()) {
                 alert('O documento de origem já não existe. Não é possível restaurar automaticamente este sub-registo. Use o ficheiro .json para repor manualmente.');
@@ -190,10 +161,10 @@ window._lixRestaurar = async function(backupId) {
             await updateDoc(refDoc, { [b.subcampo.campo]: arr });
         } else {
             // Restauro de um documento inteiro
-            await setDoc(doc(db, b.colecaoOrigem, b.docIdOrigem), b.dados);
+            await setDoc(docEmpresa(b.colecaoOrigem, b.docIdOrigem), b.dados);
         }
 
-        await updateDoc(doc(db, 'backups', backupId), { restaurado: true, restauradoEm: new Date().toISOString() });
+        await updateDoc(docEmpresa('backups', backupId), { restaurado: true, restauradoEm: new Date().toISOString() });
         b.restaurado = true;
         renderLista();
         alert('Registo restaurado com sucesso.');
@@ -204,6 +175,8 @@ window._lixRestaurar = async function(backupId) {
 
 // ─── init() ───────────────────────────────────────────────────────────────────
 export async function init() {
+    await initSidebar();
+
     await carregarBackups();
     popularFiltroTipos();
     renderLista();

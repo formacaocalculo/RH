@@ -1,10 +1,11 @@
 // assets/js/modules/assiduidade.js
-import { db } from '../app.js';
 import {
-    collection, getDocs, doc, getDoc, setDoc, query, where
+    getDocs, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { feriadosPortugal } from './ferias-utils.js';
 import { eliminarComBackup } from './seguranca-dados.js';
+import { colEmpresa, docEmpresa } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 // ─── Tipos de ausência ────────────────────────────────────────────────────────
 // Cada ausência guardada no Firestore em "ausencias/{funcId}" tem a forma:
@@ -21,7 +22,7 @@ import { eliminarComBackup } from './seguranca-dados.js';
 //   contaFalta   – true = desconta para efeitos de assiduidade
 //   subsidio     – true = mantém direito a subsídio de refeição
 
-const TIPOS_LABEL = {
+export const TIPOS_LABEL = {
     casamento: {
         label: 'Casamento', emoji: '💍', cor: 'var(--rh-warning)', grupo: 'justificada',
         baseLegal: 'Art. 249.º', unidade: 'dia',
@@ -185,7 +186,7 @@ function temSubsidioRefeicao(tipo) {
 }
 
 // Tipos que registam hora além da data
-function usaHora(tipo) {
+export function usaHora(tipo) {
     return TIPOS_LABEL[tipo]?.unidade === 'hora';
 }
 
@@ -261,7 +262,7 @@ function calcularUsoAcumulado(tipo, dataInicioNova, excluirId) {
 }
 
 // Conta dias (inclusive) ou horas de um registo de ausência
-function contarUnidades(a, unidade) {
+export function contarUnidades(a, unidade) {
     if (unidade === 'hora') {
         if (a.horaInicio && a.horaFim) {
             const [h1,m1] = a.horaInicio.split(':').map(Number);
@@ -291,43 +292,11 @@ let S = {
     _editandoId: null,      // id da ausência atualmente em edição no formulário (null = a criar nova)
 };
 
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
-function sidebar(ativo) {
-    const btn = (rota, label) => {
-        const isAtivo = rota === ativo;
-        return `<button onclick="window.router.navigate('${rota}')"
-            style="display:block;width:100%;text-align:left;
-                   background:${isAtivo ? 'var(--rh-primary)' : 'none'};
-                   color:${isAtivo ? 'var(--rh-bg-card)' : 'var(--rh-text-subtle)'};
-                   padding:10px;border:none;cursor:pointer;font-size:14px;
-                   border-radius:6px;margin-bottom:4px;
-                   font-weight:${isAtivo ? 'bold' : 'normal'};">${label}</button>`;
-    };
-    return `
-    <aside style="width:260px;background:var(--rh-primary);color:var(--rh-bg-card);padding:20px;flex-shrink:0;">
-        <div style="display:flex;align-items:center;margin-bottom:30px;">
-            <div style="background:var(--rh-primary-light);padding:8px;border-radius:8px;margin-right:10px;">🏢</div>
-            <div><h3 style="margin:0;font-size:16px;">Portal RH</h3><small style="color:var(--rh-text-subtle);">Gestão de Vencimentos</small></div>
-        </div>
-        <nav>
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:0 0 8px;">Principal</p>
-            ${btn('dashboard','📊 Dashboard')}
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px;">Gestão</p>
-            ${btn('funcionarios','👥 Colaboradores')}
-            ${btn('criar-funcionario','➕ Novo Funcionário')}
-            ${btn('assiduidade','📅 Assiduidade')}
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px;">Configurações</p>
-            ${btn('parametrizacao','⚙️ Parametrização')}
-            ${btn('lixeira','🗑️ Lixo / Repor Dados')}
-        </nav>
-    </aside>`;
-}
-
 // ─── render() ─────────────────────────────────────────────────────────────────
 export function render() {
     return `
     <div style="display:flex;min-height:100vh;background:var(--rh-bg);font-family:sans-serif;">
-        ${sidebar('assiduidade')}
+        ${renderSidebarHTML('assiduidade')}
 
         <main style="flex:1;padding:28px;overflow-y:auto;">
             <header style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
@@ -611,7 +580,7 @@ function renderKPIs() {
         </div>`).join('');
 }
 
-function contaComoFaltaAss(estado) {
+export function contaComoFaltaAss(estado) {
     return !!TIPOS_LABEL[estado]?.contaFalta;
 }
 
@@ -794,7 +763,7 @@ window._ausEliminar = async function(id) {
         mensagemConfirmacao: 'Esta ausência será eliminada e fica guardada na lixeira (Lixo / Repor Dados). Introduza a sua password para confirmar.',
         onUpdateDoc: async () => {
             S.ausencias = S.ausencias.filter(a => a.id !== id);
-            await setDoc(doc(db, 'ausencias', S.funcId), { ausencias: S.ausencias });
+            await setDoc(docEmpresa('ausencias', S.funcId), { ausencias: S.ausencias });
         },
         aoConcluir: () => {
             renderCal();
@@ -843,7 +812,7 @@ window._ausCancelarEdicao = function() {
 
 async function guardarAusencias() {
     try {
-        await setDoc(doc(db, 'ausencias', S.funcId), { ausencias: S.ausencias });
+        await setDoc(docEmpresa('ausencias', S.funcId), { ausencias: S.ausencias });
     } catch(e) { alert('Erro ao guardar: ' + e.message); }
 }
 
@@ -853,13 +822,13 @@ async function carregarFunc(funcId) {
     S._editandoId = null;
 
     // Dados do colaborador
-    const fs = await getDoc(doc(db, 'funcionarios', funcId));
+    const fs = await getDoc(docEmpresa('funcionarios', funcId));
     if (!fs.exists()) return;
     S.func = { id: fs.id, ...fs.data() };
 
     // Ausências guardadas
     try {
-        const as = await getDoc(doc(db, 'ausencias', funcId));
+        const as = await getDoc(docEmpresa('ausencias', funcId));
         S.ausencias = as.exists() ? (as.data().ausencias || []) : [];
     } catch(e) { S.ausencias = []; }
 
@@ -883,6 +852,8 @@ async function carregarFunc(funcId) {
 
 // ─── init() ───────────────────────────────────────────────────────────────────
 export async function init() {
+    await initSidebar();
+
     S.anoMapa = new Date().getFullYear();
     S.mesMapa = new Date().getMonth();
     S.feriados = new Set();
@@ -891,7 +862,7 @@ export async function init() {
 
     // Parâmetros
     try {
-        const ps = await getDoc(doc(db, 'configuracoes', 'empresa_base'));
+        const ps = await getDoc(docEmpresa('configuracoes', 'empresa_base'));
         if (ps.exists()) {
             const pd = ps.data();
             S.subsidioRefeicao = pd.subsidioRefeicao || 0;
@@ -910,7 +881,7 @@ export async function init() {
 
     // Lista de colaboradores
     try {
-        const snap = await getDocs(collection(db, 'funcionarios'));
+        const snap = await getDocs(colEmpresa('funcionarios'));
         const sel  = document.getElementById('sel-func');
         snap.forEach(d => {
             const o = document.createElement('option');

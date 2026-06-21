@@ -1,9 +1,10 @@
 // assets/js/modules/ficha-funcionario.js
-import { db } from '../app.js';
-import { doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { calcularDireitoFerias, feriadosPortugal } from './ferias-utils.js';
 import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, definirContextoFuncionario, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB } from './colaborador-utils.js';
 import { eliminarComBackup } from './seguranca-dados.js';
+import { docEmpresa } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 // calcularDireitoFerias e feriadosPortugal importados de ferias-utils.js
 
@@ -162,7 +163,7 @@ window._fichaGuardar = async function() {
     if (!btn || !S.funcId) return;
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
-        await updateDoc(doc(db, 'funcionarios', S.funcId), {
+        await updateDoc(docEmpresa('funcionarios', S.funcId), {
             diasFerias:  S.func.diasFerias  || [],
             diasGozados: S.func.diasGozados || [],
         });
@@ -186,7 +187,7 @@ window._fichaGuardarFilhos = async function() {
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
         const filhos = obterFilhosState('ficha');
-        await updateDoc(doc(db, 'funcionarios', S.funcId), { filhos });
+        await updateDoc(docEmpresa('funcionarios', S.funcId), { filhos });
         S.func.filhos = filhos;
         btn.textContent = '✔ Guardado!';
         setTimeout(() => { btn.textContent = '💾 Guardar Filhos'; btn.disabled = false; }, 2000);
@@ -202,7 +203,7 @@ window._fichaGuardarHorario = async function() {
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
         const horarioTrabalho = lerHorarioTrabalhoDoForm('ficha');
-        await updateDoc(doc(db, 'funcionarios', S.funcId), { horarioTrabalho });
+        await updateDoc(docEmpresa('funcionarios', S.funcId), { horarioTrabalho });
         S.func.horarioTrabalho = horarioTrabalho;
         btn.textContent = '✔ Guardado!';
         setTimeout(() => { btn.textContent = '💾 Guardar Horário'; btn.disabled = false; }, 2000);
@@ -232,7 +233,7 @@ window._fichaGuardarPessoais = async function() {
     try {
         const nibValido = nib !== '' && validarNIB(nib);
         const dadosPess = { nome, nif, nascimento, estadoCivil, morada, contacto, email, nib, nibValido };
-        await updateDoc(doc(db, 'funcionarios', S.funcId), dadosPess);
+        await updateDoc(docEmpresa('funcionarios', S.funcId), dadosPess);
         Object.assign(S.func, dadosPess);
         document.getElementById('ficha-titulo').textContent = S.func.nome || 'Colaborador';
         document.getElementById('ficha-sub').textContent =
@@ -254,14 +255,15 @@ window._fichaGuardarProfissionais = async function() {
     const admissao = document.getElementById('ficha-prof-admissao').value;
     const salarioBase = parseFloat(document.getElementById('ficha-prof-salario').value) || 0;
     const categoriaIRS = document.getElementById('ficha-prof-irs').value;
+    const taxaIRS = parseFloat(document.getElementById('ficha-prof-taxa-irs').value);
     const qualificacao = document.getElementById('ficha-prof-qualificacao').value || null;
 
     if (!admissao) { alert('A data de admissão é obrigatória.'); return; }
 
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
-        const dadosProf = { cargo, departamento, admissao, salarioBase, categoriaIRS, qualificacao };
-        await updateDoc(doc(db, 'funcionarios', S.funcId), dadosProf);
+        const dadosProf = { cargo, departamento, admissao, salarioBase, categoriaIRS, taxaIRS: isNaN(taxaIRS) ? 0 : taxaIRS, qualificacao };
+        await updateDoc(docEmpresa('funcionarios', S.funcId), dadosProf);
         Object.assign(S.func, dadosProf);
         // O direito a férias depende da data de admissão: recalcula caso tenha mudado
         S.direitoAno = calcularDireitoFerias(S.func.admissao, S.ano, S.limiteDiasFerias);
@@ -282,7 +284,7 @@ window._fichaEliminarFuncionario = async function() {
     // Junta as ausências associadas ao mesmo backup, para permitir reposição completa.
     let ausenciasAssociadas = null;
     try {
-        const ausSnap = await getDoc(doc(db, 'ausencias', S.funcId));
+        const ausSnap = await getDoc(docEmpresa('ausencias', S.funcId));
         if (ausSnap.exists()) ausenciasAssociadas = ausSnap.data();
     } catch (e) { /* sem ausências, ignora */ }
 
@@ -294,8 +296,8 @@ window._fichaEliminarFuncionario = async function() {
         descricao: `${S.func.nome || S.funcId} (NIF ${S.func.nif || '—'})`,
         mensagemConfirmacao: `O colaborador "${S.func.nome}" e o seu histórico de ausências serão eliminados. Os dados ficam guardados na lixeira (Lixo / Repor Dados). Introduza a sua password para confirmar.`,
         onUpdateDoc: async () => {
-            await deleteDoc(doc(db, 'funcionarios', S.funcId));
-            if (ausenciasAssociadas) await deleteDoc(doc(db, 'ausencias', S.funcId));
+            await deleteDoc(docEmpresa('funcionarios', S.funcId));
+            if (ausenciasAssociadas) await deleteDoc(docEmpresa('ausencias', S.funcId));
         },
     });
 
@@ -310,24 +312,7 @@ export function render() {
     return `
     <div style="display:flex;min-height:100vh;background:var(--rh-bg);font-family:sans-serif;">
 
-        <!-- Sidebar -->
-        <aside style="width:260px;background:var(--rh-primary);color:var(--rh-bg-card);padding:20px;flex-shrink:0;">
-            <div style="display:flex;align-items:center;margin-bottom:30px;">
-                <div style="background:var(--rh-primary-light);padding:8px;border-radius:8px;margin-right:10px;">🏢</div>
-                <div><h3 style="margin:0;font-size:16px;">Portal RH</h3><small style="color:var(--rh-text-subtle);">Gestão de Vencimentos</small></div>
-            </div>
-            <nav>
-                <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:0 0 8px 0;">Principal</p>
-                <button onclick="window.router.navigate('dashboard')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📊 Dashboard</button>
-                <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Gestão</p>
-                <button onclick="window.router.navigate('funcionarios')" style="display:block;width:100%;text-align:left;background:var(--rh-primary);color:var(--rh-bg-card);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;font-weight:bold;">👥 Colaboradores</button>
-                <button onclick="window.router.navigate('criar-funcionario')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">➕ Novo Funcionário</button>
-                <button onclick="window.router.navigate('assiduidade')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;">📅 Assiduidade</button>
-                <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
-                <button onclick="window.router.navigate('parametrizacao')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">⚙️ Parametrização</button>
-                <button onclick="window.router.navigate('lixeira')" style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;">🗑️ Lixo / Repor Dados</button>
-            </nav>
-        </aside>
+        ${renderSidebarHTML('funcionarios')}
 
         <!-- Main -->
         <main style="flex:1;padding:28px;overflow-y:auto;">
@@ -511,6 +496,14 @@ export function render() {
                         </select>
                     </div>
                     <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Taxa de Retenção IRS (%)</label>
+                        <input type="number" id="ficha-prof-taxa-irs" min="0" max="100" step="0.1" placeholder="Ex: 11.0"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                        <small style="color:var(--rh-text-subtle);font-size:10px;display:block;margin-top:3px;">
+                            Definida manualmente conforme a tabela de retenção em vigor para a categoria/escalão do colaborador.
+                        </small>
+                    </div>
+                    <div style="margin-bottom:10px;">
                         <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">🎓 Habilitações Literárias</label>
                         <div id="ficha-prof-qualificacao-wrap" style="font-size:12px;"></div>
                     </div>
@@ -534,6 +527,8 @@ export function render() {
 
 // ─── init() ───────────────────────────────────────────────────────────────────
 export async function init() {
+    await initSidebar();
+
     const funcId = window._fichaFuncId;
     if (!funcId) { window.router.navigate('funcionarios'); return; }
     S.funcId = funcId;
@@ -543,7 +538,7 @@ export async function init() {
 
     // Parâmetros
     try {
-        const ps = await getDoc(doc(db, 'configuracoes', 'empresa_base'));
+        const ps = await getDoc(docEmpresa('configuracoes', 'empresa_base'));
         if (ps.exists()) {
             const pd = ps.data();
             S.limiteDiasFerias = pd.limiteDiasFerias || 22;
@@ -561,7 +556,7 @@ export async function init() {
 
     // Funcionário
     try {
-        const fs = await getDoc(doc(db, 'funcionarios', funcId));
+        const fs = await getDoc(docEmpresa('funcionarios', funcId));
         if (!fs.exists()) { alert('Funcionário não encontrado.'); window.router.navigate('funcionarios'); return; }
         S.func = { id: fs.id, ...fs.data() };
     } catch(e) { alert('Erro: ' + e.message); return; }
@@ -585,6 +580,7 @@ export async function init() {
     setVal('ficha-prof-admissao', S.func.admissao);
     setVal('ficha-prof-salario', S.func.salarioBase);
     setVal('ficha-prof-irs', S.func.categoriaIRS || 'solteiro');
+    setVal('ficha-prof-taxa-irs', S.func.taxaIRS ?? '');
     document.getElementById('ficha-prof-qualificacao-wrap').innerHTML = renderSelectQualificacao('ficha-prof-qualificacao', S.func.qualificacao || '');
     const horarioInfoEl = document.getElementById('ficha-prof-horario-info');
     if (horarioInfoEl) horarioInfoEl.textContent = 'O horário de trabalho é editado na secção "Horário de Trabalho".';

@@ -1,50 +1,15 @@
 // assets/js/modules/funcionarios.js
-import { db } from '../app.js';
-import { collection, getDocs, doc, getDoc, deleteDoc, query, where }
+import { getDocs, getDoc, deleteDoc, query, where }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { calcularDireitoFerias } from './ferias-utils.js';
 import { eliminarComBackup } from './seguranca-dados.js';
-
-// ─── Sidebar partilhada ───────────────────────────────────────────────────────
-function sidebar(ativo = 'funcionarios') {
-    const btn = (id, icon, label) => {
-        const isAtivo = id === ativo;
-        return `<button onclick="window.router.navigate('${id}')"
-            style="display:block;width:100%;text-align:left;
-                   background:${isAtivo ? 'var(--rh-primary)' : 'none'};
-                   color:${isAtivo ? 'var(--rh-bg-card)' : 'var(--rh-text-subtle)'};
-                   padding:10px;border:none;cursor:pointer;font-size:14px;
-                   border-radius:6px;margin-bottom:4px;
-                   font-weight:${isAtivo ? 'bold' : 'normal'};">
-            ${icon} ${label}</button>`;
-    };
-    return `
-    <aside style="width:260px;background:var(--rh-primary);color:var(--rh-bg-card);padding:20px;flex-shrink:0;">
-        <div style="display:flex;align-items:center;margin-bottom:30px;">
-            <div style="background:var(--rh-primary-light);padding:8px;border-radius:8px;margin-right:10px;">🏢</div>
-            <div><h3 style="margin:0;font-size:16px;">Portal RH</h3>
-                 <small style="color:var(--rh-text-subtle);">Gestão de Vencimentos</small></div>
-        </div>
-        <nav>
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:0 0 8px 0;">Principal</p>
-            ${btn('dashboard','📊','Dashboard')}
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Gestão</p>
-            ${btn('funcionarios','👥','Colaboradores')}
-            ${btn('criar-funcionario','➕','Novo Funcionário')}
-            ${btn('assiduidade','📅','Assiduidade')}
-            ${btn('processamento','⚙️','Processamento')}
-            ${btn('recibos','📄','Recibos')}
-            <p style="color:var(--rh-text-muted);font-size:11px;text-transform:uppercase;font-weight:bold;margin:16px 0 8px 0;">Configurações</p>
-            ${btn('parametrizacao','⚙️','Parametrização')}
-            ${btn('lixeira','🗑️','Lixo / Repor Dados')}
-        </nav>
-    </aside>`;
-}
+import { colEmpresa, docEmpresa } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 export function render() {
     return `
     <div style="display:flex;min-height:100vh;background:var(--rh-bg);font-family:sans-serif;">
-        ${sidebar('funcionarios')}
+        ${renderSidebarHTML('funcionarios')}
         <main style="flex:1;padding:30px;overflow-y:auto;">
             <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;">
                 <div>
@@ -127,7 +92,7 @@ window._funcEliminar = async function (id) {
     // Junta também as ausências associadas, para que o backup permita repor tudo de uma vez.
     let ausenciasAssociadas = null;
     try {
-        const ausSnap = await getDoc(doc(db, 'ausencias', id));
+        const ausSnap = await getDoc(docEmpresa('ausencias', id));
         if (ausSnap.exists()) ausenciasAssociadas = ausSnap.data();
     } catch (e) { /* sem ausências, ignora */ }
 
@@ -141,8 +106,8 @@ window._funcEliminar = async function (id) {
         descricao: `${f.nome || id} (NIF ${f.nif || '—'})`,
         mensagemConfirmacao: `O colaborador "${f.nome}" e o seu histórico de ausências serão eliminados. Os dados ficam guardados na lixeira (Lixo / Repor Dados). Introduza a sua password para confirmar.`,
         onUpdateDoc: async () => {
-            await deleteDoc(doc(db, 'funcionarios', id));
-            if (ausenciasAssociadas) await deleteDoc(doc(db, 'ausencias', id));
+            await deleteDoc(docEmpresa('funcionarios', id));
+            if (ausenciasAssociadas) await deleteDoc(docEmpresa('ausencias', id));
         },
         aoConcluir: () => {
             _lista = _lista.filter(x => x.id !== id);
@@ -218,12 +183,14 @@ function _renderTabela(lista) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 export async function init() {
+    await initSidebar();
+
     const anoEl = document.getElementById('func-ano-ref');
     if (anoEl) anoEl.textContent = _anoRef;
 
     // Carregar parâmetro de limite de férias
     try {
-        const ps = await getDoc(doc(db, 'configuracoes', 'empresa_base'));
+        const ps = await getDoc(docEmpresa('configuracoes', 'empresa_base'));
         if (ps.exists() && ps.data().limiteDiasFerias) {
             _limiteParam = ps.data().limiteDiasFerias;
         }
@@ -231,7 +198,7 @@ export async function init() {
 
     // Carregar funcionários
     try {
-        const snap = await getDocs(query(collection(db, 'funcionarios'), where('ativo', '==', true)));
+        const snap = await getDocs(query(colEmpresa('funcionarios'), where('ativo', '==', true)));
         _lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _renderTabela(_lista);
 

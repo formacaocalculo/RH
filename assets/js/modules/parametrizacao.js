@@ -1,26 +1,12 @@
 // assets/js/modules/parametrizacao.js
-import { db } from '../app.js';
-import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { docEmpresa, empresaAtivaId, editarEmpresa, empresaAtiva } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 export function render() {
     return `
-    <div class="portal-container" style="display: flex; min-height: 100vh; background-color: var(--rh-bg); font-family: sans-serif;">
-        <aside class="sidebar" style="width: 260px; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 20px;">
-            <div class="logo-section" style="display: flex; align-items: center; margin-bottom: 30px;">
-                <div style="background-color: var(--rh-primary-light); padding: 8px; border-radius: 8px; margin-right: 10px;">🏢</div>
-                <div>
-                    <h3 style="margin: 0; font-size: 16px;">Portal RH</h3>
-                    <small style="color: var(--rh-text-subtle);">Gestão de Vencimentos</small>
-                </div>
-            </div>
-            <nav class="menu">
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
-                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">📊 Dashboard</button>
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Configurações</p>
-                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px; font-weight: bold;">⚙️ Parametrização</button>
-                <button onclick="window.router.navigate('lixeira')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 10px; font-size: 14px;">🗑️ Lixo / Repor Dados</button>
-            </nav>
-        </aside>
+    <div style="display: flex; min-height: 100vh; background-color: var(--rh-bg); font-family: sans-serif;">
+        ${renderSidebarHTML('parametrizacao')}
 
         <main class="main-content" style="flex: 1; padding: 30px;">
             <header style="margin-bottom: 30px;">
@@ -72,6 +58,25 @@ export function render() {
                         <input type="number" id="horas-min-subsidio" min="0" max="24" step="0.5" value="4" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing: border-box;">
                         <small style="color:var(--rh-text-subtle); font-size:12px;">Em dias com falta parcial justificada, o colaborador só mantém direito ao subsídio se as horas efetivamente trabalhadas nesse dia atingirem este mínimo.</small>
                     </div>
+                </div>
+
+                <div style="background: var(--rh-bg-card); padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); grid-column: 1 / -1;">
+                    <h4 style="margin: 0 0 20px 0; color: var(--rh-primary); border-bottom: 2px solid var(--rh-danger); padding-bottom: 8px;">💶 Processamento de Vencimentos</h4>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+                        <div>
+                            <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted);">Taxa de Segurança Social — Trabalhador (%)</label>
+                            <input type="number" id="taxa-ss-trabalhador" min="0" max="100" step="0.01" value="11" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing: border-box;">
+                            <small style="color:var(--rh-text-subtle); font-size:12px;">Taxa legal padrão em Portugal: 11%. Ajustável para regimes especiais.</small>
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted);">Taxa de Segurança Social — Entidade Patronal (%)</label>
+                            <input type="number" id="taxa-ss-entidade" min="0" max="100" step="0.01" value="23.75" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing: border-box;">
+                            <small style="color:var(--rh-text-subtle); font-size:12px;">Taxa legal padrão: 23,75%. Apenas informativa nos recibos (custo da empresa).</small>
+                        </div>
+                    </div>
+                    <p style="margin:14px 0 0;font-size:12px;color:var(--rh-text-subtle);background:var(--rh-warning-bg);border:1px solid var(--rh-warning);border-radius:6px;padding:10px 12px;">
+                        ⚠️ A retenção de IRS <strong>não</strong> é calculada automaticamente — defina a taxa de cada colaborador na sua ficha individual, conforme a tabela de retenção em vigor.
+                    </p>
                 </div>
             </div>
 
@@ -138,23 +143,35 @@ function atualizarInterfaceFeriados(lista, feriadosAtivos = []) {
 }
 
 export async function init() {
-    const docRef = doc(db, "configuracoes", "empresa_base");
+    await initSidebar();
+
+    const docRef = docEmpresa("configuracoes", "empresa_base");
     const inputAno = document.getElementById('cal-ano');
     let anoAtual = parseInt(inputAno.value) || 2026;
     let feriadosAtivosGuardados = [];
+
+    // Dados de identificação da empresa vêm da própria entidade "empresa"
+    // (criada/editada também em "empresas.js"), não de "configuracoes".
+    try {
+        const emp = await empresaAtiva();
+        if (emp) {
+            document.getElementById('empresa-nome').value = emp.nome || '';
+            document.getElementById('empresa-morada').value = emp.morada || '';
+            document.getElementById('empresa-nif').value = emp.nif || '';
+        }
+    } catch (error) { console.error('Erro ao carregar dados da empresa:', error); }
 
     try {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
             const dados = docSnap.data();
-            document.getElementById('empresa-nome').value = dados.nome || '';
-            document.getElementById('empresa-morada').value = dados.morada || '';
-            document.getElementById('empresa-nif').value = dados.nif || '';
             document.getElementById('cal-feriados-locais').value = dados.feriadosLocais || '';
             if (dados.ano) inputAno.value = dados.ano;
             if (dados.limiteDiasFerias) document.getElementById('cal-limite-ferias').value = dados.limiteDiasFerias;
             if (dados.subsidioRefeicao !== undefined) document.getElementById('subsidio-refeicao').value = dados.subsidioRefeicao;
             if (dados.horasMinSubsidio !== undefined) document.getElementById('horas-min-subsidio').value = dados.horasMinSubsidio;
+            if (dados.taxaSSTrabalhador !== undefined) document.getElementById('taxa-ss-trabalhador').value = dados.taxaSSTrabalhador;
+            if (dados.taxaSSEntidade !== undefined) document.getElementById('taxa-ss-entidade').value = dados.taxaSSEntidade;
             feriadosAtivosGuardados = dados.feriadosAtivos || [];
         }
     } catch (error) { console.error("Erro ao carregar do Firebase:", error); }
@@ -174,16 +191,20 @@ export async function init() {
                                   .map(el => el.getAttribute('data-nome'));
 
         try {
-            await setDoc(docRef, {
+            await editarEmpresa(empresaAtivaId(), {
                 nome: document.getElementById('empresa-nome').value,
                 morada: document.getElementById('empresa-morada').value,
                 nif: document.getElementById('empresa-nif').value,
+            });
+            await setDoc(docRef, {
                 ano: inputAno.value,
                 feriadosLocais: document.getElementById('cal-feriados-locais').value,
                 feriadosAtivos: selecionados,
                 limiteDiasFerias: parseInt(document.getElementById('cal-limite-ferias').value) || 22,
                 subsidioRefeicao: parseFloat(document.getElementById('subsidio-refeicao').value) || 0,
-                horasMinSubsidio: parseFloat(document.getElementById('horas-min-subsidio').value) || 0
+                horasMinSubsidio: parseFloat(document.getElementById('horas-min-subsidio').value) || 0,
+                taxaSSTrabalhador: parseFloat(document.getElementById('taxa-ss-trabalhador').value) || 11,
+                taxaSSEntidade: parseFloat(document.getElementById('taxa-ss-entidade').value) || 23.75
             });
             alert("Parâmetros atualizados com sucesso!");
         } catch (error) { alert("Erro ao salvar: " + error.message); }

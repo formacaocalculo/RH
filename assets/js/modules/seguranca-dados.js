@@ -16,17 +16,21 @@
 //       aoConcluir: () => { ...atualizar UI... }
 //   });
 
-import { auth, db } from '../app.js';
+import { auth } from '../app.js';
 import {
     signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-    doc, setDoc, deleteDoc, collection
+    setDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { colEmpresa, docEmpresa } from './tenant.js';
 
 // ─── Modal de reautenticação ───────────────────────────────────────────────
 // Devolve uma Promise<boolean>: true se a password foi confirmada com sucesso.
-function pedirReautenticacao(mensagem) {
+// Exportada para ser reutilizada por outros fluxos sensíveis fora deste
+// módulo (ex.: eliminação de uma empresa inteira em empresas.js), que não
+// seguem o padrão "registo dentro de uma empresa + backup automático".
+export function pedirReautenticacao(mensagem) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.id = 'seg-overlay';
@@ -169,17 +173,17 @@ export async function eliminarComBackup(opcoes) {
     };
 
     try {
-        // 1. Gravar backup no Firestore (coleção "backups")
-        await setDoc(doc(db, 'backups', backupId), backupRecord);
+        // 1. Gravar backup no Firestore (coleção "backups", dentro da empresa ativa)
+        await setDoc(docEmpresa('backups', backupId), backupRecord);
 
         // 2. Aplicar a eliminação real:
         //    - se for um subcampo (ex: um filho dentro do array de um funcionário), o módulo
         //      chamador faz a atualização via onUpdateDoc (updateDoc com o array já filtrado).
-        //    - caso contrário, apaga o documento Firestore inteiro.
+        //    - caso contrário, apaga o documento Firestore inteiro (dentro da empresa ativa).
         if (typeof onUpdateDoc === 'function') {
             await onUpdateDoc();
         } else {
-            await deleteDoc(doc(db, colecao, docId));
+            await deleteDoc(docEmpresa(colecao, docId));
         }
 
         // 3. Oferecer download imediato do .json

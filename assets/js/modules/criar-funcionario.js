@@ -1,31 +1,13 @@
 // assets/js/modules/criar-funcionario.js
-import { db } from '../app.js';
-import { collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB } from './colaborador-utils.js';
+import { colEmpresa, docEmpresa } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 export function render() {
     return `
-    <div class="portal-container" style="display: flex; min-height: 100vh; background-color: var(--rh-bg); font-family: sans-serif;">
-        <aside class="sidebar" style="width: 260px; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 20px; flex-shrink: 0;">
-            <div class="logo-section" style="display: flex; align-items: center; margin-bottom: 30px;">
-                <div style="background-color: var(--rh-primary-light); padding: 8px; border-radius: 8px; margin-right: 10px;">🏢</div>
-                <div>
-                    <h3 style="margin: 0; font-size: 16px;">Portal RH</h3>
-                    <small style="color: var(--rh-text-subtle);">Gestão de Vencimentos</small>
-                </div>
-            </div>
-            <nav class="menu">
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
-                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;">📊 Dashboard</button>
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Gestão</p>
-                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;"style="display:block;width:100%;text-align:left;background:none;color:var(--rh-text-subtle);padding:10px;border:none;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:4px;" onclick="window.router.navigate('funcionarios')">👥 Colaboradores</button>
-                <button onclick="window.router.navigate('criar-funcionario')" style="display: block; width: 100%; text-align: left; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 5px; font-size: 14px; font-weight: bold;">➕ Novo Funcionário</button>
-                <button onclick="window.router.navigate('assiduidade')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; margin-bottom: 5px; font-size: 14px;">📅 Assiduidade</button>
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">Configurações</p>
-                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Parametrização</button>
-                <button onclick="window.router.navigate('lixeira')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">🗑️ Lixo / Repor Dados</button>
-            </nav>
-        </aside>
+    <div style="display: flex; min-height: 100vh; background-color: var(--rh-bg); font-family: sans-serif;">
+        ${renderSidebarHTML('criar-funcionario')}
 
         <main class="main-content" style="flex: 1; padding: 30px; overflow-y: auto;">
             <header style="display: flex; align-items: center; gap: 15px; margin-bottom: 30px;">
@@ -111,6 +93,11 @@ export function render() {
                             <option value="casado2">Casado(a) — 2 titulares</option>
                             <option value="monoparental">Família monoparental</option>
                         </select>
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Taxa de Retenção IRS (%)</label>
+                        <input type="number" id="func-taxa-irs" min="0" max="100" step="0.1" placeholder="Ex: 11.0" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
+                        <small style="color:var(--rh-text-subtle); font-size:11px;">Definida conforme a tabela de retenção em vigor para a categoria/escalão do colaborador.</small>
                     </div>
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">🎓 Habilitações Literárias</label>
@@ -286,12 +273,14 @@ window._criarFuncValidarNib = function(valor) {
 // ─── Init ──────────────────────────────────────────────────────────────────
 
 export async function init() {
+    await initSidebar();
+
     // Estado de filhos: novo funcionário começa sem filhos registados
     inicializarFilhosState('novo', []);
 
     // Carregar parâmetros: limite de férias e feriados activos
     try {
-        const paramSnap = await getDoc(doc(db, 'configuracoes', 'empresa_base'));
+        const paramSnap = await getDoc(docEmpresa('configuracoes', 'empresa_base'));
         if (paramSnap.exists()) {
             const dados = paramSnap.data();
             if (dados.limiteDiasFerias) _calState.limiteFerias = dados.limiteDiasFerias;
@@ -379,6 +368,7 @@ export async function init() {
             admissao,
             salarioBase:  salario,
             categoriaIRS: document.getElementById('func-irs').value,
+            taxaIRS: parseFloat(document.getElementById('func-taxa-irs').value) || 0,
             qualificacao: document.getElementById('func-qualificacao').value || null,
             diasFerias:   Array.from(_calState.diasSelecionados).sort(),
             filhos:       obterFilhosState('novo'),
@@ -388,10 +378,10 @@ export async function init() {
         };
 
         try {
-            await addDoc(collection(db, 'funcionarios'), funcionario);
+            await addDoc(colEmpresa('funcionarios'), funcionario);
             // Se não tem NIB, registar alerta no dashboard
             if (!nibValido) {
-                await addDoc(collection(db, 'alertas_dashboard'), {
+                await addDoc(colEmpresa('alertas_dashboard'), {
                     tipo: 'nib_em_falta',
                     mensagem: `O funcionário ${nome} (NIF: ${nif}) ainda não forneceu NIB.`,
                     nif,

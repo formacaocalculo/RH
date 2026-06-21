@@ -1,39 +1,18 @@
 // assets/js/modules/dashboard.js
-import { db } from '../app.js';
-import { collection, getDocs, query, where, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getDocs, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { colEmpresa, docEmpresa, empresaAtiva } from './tenant.js';
+import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
 export function render() {
     return `
-    <div class="portal-container" style="display: flex; min-height: 100vh; background-color: var(--rh-bg); font-family: sans-serif;">
-        <aside class="sidebar" style="width: 260px; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 20px; flex-shrink: 0;">
-            <div class="logo-section" style="display: flex; align-items: center; margin-bottom: 30px;">
-                <div style="background-color: var(--rh-primary-light); padding: 8px; border-radius: 8px; margin-right: 10px;">🏢</div>
-                <div>
-                    <h3 style="margin: 0; font-size: 16px;">Portal RH</h3>
-                    <small style="color: var(--rh-text-subtle);">Gestão de Vencimentos</small>
-                </div>
-            </div>
-            
-            <nav class="menu">
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Principal</p>
-                <button onclick="window.router.navigate('dashboard')" style="display: block; width: 100%; text-align: left; background-color: var(--rh-primary); color: var(--rh-bg-card); padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; font-size: 14px; font-weight: bold;">📊 Dashboard</button>
-                
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Gestão</p>
-                <button onclick="window.router.navigate('funcionarios')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">👥 Colaboradores</button>
-                <button onclick="window.router.navigate('criar-funcionario')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">➕ Novo Funcionário</button>
-                <button onclick="window.router.navigate('assiduidade')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">📅 Assiduidade</button>
-                <button onclick="window.router.navigate('processamento')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Processamento</button>
-                <button onclick="window.router.navigate('recibos')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">📄 Recibos</button>
-                
-                <p style="color: var(--rh-text-muted); font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 10px;">Configurações</p>
-                <button onclick="window.router.navigate('parametrizacao')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">⚙️ Parametrização</button>
-                <button onclick="window.router.navigate('lixeira')" style="display: block; width: 100%; text-align: left; background: none; color: var(--rh-text-subtle); padding: 10px; border: none; cursor: pointer; font-size: 14px;">🗑️ Lixo / Repor Dados</button>
-            </nav>
-        </aside>
-
-        <main class="main-content" style="flex: 1; padding: 30px; overflow-y: auto;">
+    <div style="display:flex;min-height:100vh;background:var(--rh-bg);font-family:sans-serif;">
+        ${renderSidebarHTML('dashboard')}
+        <main style="flex:1;padding:30px;overflow-y:auto;">
             <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; font-size: 24px; color: var(--rh-primary);">Dashboard</h2>
+                <div>
+                    <h2 style="margin: 0; font-size: 24px; color: var(--rh-primary);">Dashboard</h2>
+                    <small id="dash-empresa-nome" style="color: var(--rh-text-subtle);"></small>
+                </div>
                 <div style="display:flex; gap:10px; align-items:center;">
                     <button onclick="window.router.navigate('criar-funcionario')" style="background-color:var(--rh-primary); color:var(--rh-bg-card); border:none; padding:9px 18px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500;">➕ Novo Funcionário</button>
                     <span style="color: var(--rh-text-muted); font-size: 14px;">${new Date().toLocaleDateString('pt-PT', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}</span>
@@ -69,9 +48,9 @@ export function render() {
             <div style="background: var(--rh-bg-card); padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h4 style="margin: 0; font-size: 16px; color: var(--rh-primary);">Últimos Processamentos</h4>
-                    <button style="background-color: var(--rh-primary); color: var(--rh-bg-card); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">Processar novo →</button>
+                    <button onclick="window.router.navigate('processamento')" style="background-color: var(--rh-primary); color: var(--rh-bg-card); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;">Processar novo →</button>
                 </div>
-                
+
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
                     <thead>
                         <tr style="color: var(--rh-text-subtle); border-bottom: 1px solid var(--rh-border); text-transform: uppercase; font-size: 11px;">
@@ -86,7 +65,7 @@ export function render() {
                     </thead>
                     <tbody id="tabela-processamentos"></tbody>
                 </table>
-                
+
                 <div id="mensagem-status" style="text-align: center; color: var(--rh-text-subtle); padding: 40px 0; font-style: italic;">
                     Carregando dados do painel...
                 </div>
@@ -97,7 +76,11 @@ export function render() {
 }
 
 export async function init() {
-    console.log("Módulo do Dashboard Inicializado com sucesso!");
+    await initSidebar();
+    const emp = await empresaAtiva();
+    const nomeEl = document.getElementById('dash-empresa-nome');
+    if (nomeEl) nomeEl.textContent = emp ? emp.nome : '';
+
     await _carregarAlertas();
     await _carregarKPIs();
 }
@@ -108,7 +91,7 @@ async function _carregarAlertas() {
 
     try {
         const q = query(
-            collection(db, 'alertas_dashboard'),
+            colEmpresa('alertas_dashboard'),
             where('resolvido', '==', false),
             where('tipo', '==', 'nib_em_falta')
         );
@@ -139,7 +122,7 @@ async function _carregarAlertas() {
 
 window._resolverAlertaNIB = async function(alertaId) {
     try {
-        await updateDoc(doc(db, 'alertas_dashboard', alertaId), { resolvido: true });
+        await updateDoc(docEmpresa('alertas_dashboard', alertaId), { resolvido: true });
         const el = document.getElementById(`alerta-${alertaId}`);
         if (el) el.remove();
     } catch (e) {
@@ -149,7 +132,7 @@ window._resolverAlertaNIB = async function(alertaId) {
 
 async function _carregarKPIs() {
     try {
-        const snap = await getDocs(query(collection(db, 'funcionarios'), where('ativo', '==', true)));
+        const snap = await getDocs(query(colEmpresa('funcionarios'), where('ativo', '==', true)));
         document.getElementById('kpi-total').textContent = snap.size;
 
         let massaSalarial = 0;

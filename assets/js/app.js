@@ -10,10 +10,20 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Escuta a autenticação e faz o redirecionamento
-onAuthStateChanged(auth, (user) => {
-    // ESTA É A LINHA DO LOG PARA DEBUGAR
+// Promise que resolve na primeira vez que o Firebase Auth informa o estado
+// real da sessão (autenticado ou não). Outros módulos devem "await authReady"
+// antes de confiar em auth.currentUser ou de fazer pedidos ao Firestore —
+// o SDK demora um instante a restaurar a sessão a partir do armazenamento
+// local, e sem esperar por isto um refresh de página poderia, por engano,
+// tratar um utilizador autenticado como se não estivesse logado.
+let _resolverAuthReady;
+export const authReady = new Promise((resolve) => { _resolverAuthReady = resolve; });
+
+// Escuta a autenticação e faz o redirecionamento adequado.
+onAuthStateChanged(auth, async (user) => {
     console.log("Estado de autenticação mudou. Utilizador detetado:", user);
+
+    if (_resolverAuthReady) { _resolverAuthReady(user); _resolverAuthReady = null; }
 
     // Durante a reautenticação por password usada para confirmar eliminações
     // (ver seguranca-dados.js), o Firebase dispara este evento outra vez para o
@@ -22,10 +32,14 @@ onAuthStateChanged(auth, (user) => {
     if (window._suprimirRedirecionoAuth) return;
 
     if (user) {
-        // Se logado, vai para o dashboard
-        window.router.navigate('dashboard');
+        // Com sessão válida, o router decide para onde ir: se ainda não há
+        // empresa ativa escolhida vai para 'empresas'; caso contrário, para
+        // 'dashboard'. Centralizar esta decisão em router.js evita duplicar
+        // esta lógica aqui e em cada módulo.
+        window.router.navigateAposLogin();
     } else {
-        // Se não logado, vai para o login
+        const { reset } = await import('./modules/tenant.js');
+        reset();
         window.router.navigate('login');
     }
 });
