@@ -34,7 +34,7 @@ export function render() {
                 </div>
                 <div style="margin-bottom:10px;">
                     <label style="display:block;margin-bottom:5px;font-weight:500;color:var(--rh-text-muted);font-size:12px;">Senha</label>
-                    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"
+                    <input type="password" id="password" autocomplete="current-password"
                         style="width:100%;padding:11px;border:1px solid var(--rh-border);border-radius:7px;font-size:14px;box-sizing:border-box;">
                 </div>
                 <div style="text-align:right;margin-bottom:18px;">
@@ -78,12 +78,12 @@ export function render() {
                 </div>
                 <div style="margin-bottom:14px;">
                     <label style="display:block;margin-bottom:5px;font-weight:500;color:var(--rh-text-muted);font-size:12px;">Senha (mín. 6 caracteres)</label>
-                    <input type="password" id="registar-pass" placeholder="••••••••" autocomplete="new-password" minlength="6"
+                    <input type="password" id="registar-pass" autocomplete="new-password" minlength="6"
                         style="width:100%;padding:11px;border:1px solid var(--rh-border);border-radius:7px;font-size:14px;box-sizing:border-box;">
                 </div>
                 <div style="margin-bottom:22px;">
                     <label style="display:block;margin-bottom:5px;font-weight:500;color:var(--rh-text-muted);font-size:12px;">Confirmar Senha</label>
-                    <input type="password" id="registar-pass2" placeholder="••••••••" autocomplete="new-password" minlength="6"
+                    <input type="password" id="registar-pass2" autocomplete="new-password" minlength="6"
                         style="width:100%;padding:11px;border:1px solid var(--rh-border);border-radius:7px;font-size:14px;box-sizing:border-box;">
                 </div>
                 <button id="btn-registar"
@@ -119,19 +119,6 @@ window._loginMudarAba = function(aba) {
 };
 
 export function init() {
-    // Garantir que o campo da password começa SEMPRE vazio — o browser tende
-    // a preencher automaticamente a password guardada ao abrir o ecrã, e
-    // pretendemos que nada apareça ali até a pessoa escrever. Os timeouts
-    // servem para limpar também o preenchimento automático, que acontece um
-    // instante depois de a página carregar.
-    const limparPassword = () => {
-        const p = document.getElementById('password');
-        if (p) p.value = '';
-    };
-    limparPassword();
-    setTimeout(limparPassword, 50);
-    setTimeout(limparPassword, 300);
-
     document.getElementById('btn-login').addEventListener('click', async () => {
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
