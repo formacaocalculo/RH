@@ -45,6 +45,15 @@ export function renderSidebarHTML(rotaAtiva) {
             <div><h3 style="margin:0;font-size:16px;">Portal RH</h3><small style="color:var(--rh-text-subtle);">Gestão de Vencimentos</small></div>
         </div>
 
+        ${rotaAtiva !== 'dashboard' ? `
+        <button onclick="window.router.navigate('dashboard')"
+            style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+                   background:rgba(255,255,255,0.08);color:var(--rh-bg-card);
+                   padding:10px 12px;border:1px solid rgba(255,255,255,0.18);
+                   cursor:pointer;font-size:13px;border-radius:6px;margin-bottom:14px;font-weight:bold;">
+            ← Voltar ao Dashboard
+        </button>` : ''}
+
         <div id="sidebar-aviso-admin" style="display:none;margin-bottom:14px;padding:8px 10px;background:rgba(255,255,255,0.1);border:1px solid var(--rh-accent);border-radius:6px;font-size:11px;color:var(--rh-accent);text-align:center;">
             ⚠ Modo Admin — a ver empresa de outro utilizador
         </div>
