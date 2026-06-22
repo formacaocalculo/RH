@@ -312,11 +312,62 @@ window._adminApagarDefinitivo = async function(empresaId) {
 };
 
 async function carregarTudo() {
-    [S.empresas, S.lixeira] = await Promise.all([listarTodasEmpresasAdmin(), listarLixeiraEmpresas()]);
+    const erros = [];
+    try {
+        S.empresas = await listarTodasEmpresasAdmin();
+    } catch (e) {
+        S.empresas = [];
+        console.error('[admin] listarTodasEmpresasAdmin falhou:', e);
+        erros.push('Empresas: ' + (e?.message || e));
+    }
+    try {
+        S.lixeira = await listarLixeiraEmpresas();
+    } catch (e) {
+        S.lixeira = [];
+        console.error('[admin] listarLixeiraEmpresas falhou:', e);
+        erros.push('Lixeira: ' + (e?.message || e));
+    }
+
     await carregarStats();
     window._adminRenderEmpresas();
     renderLixeira();
+
+    if (erros.length) mostrarErroAdmin(erros.join('\n'));
+    else { const b = document.getElementById('adm-erro'); if (b) b.remove(); }
 }
+
+// Mostra um aviso visível (em vez de deixar o erro chegar ao router, que
+// mostraria "Página não encontrada"). Inclui a mensagem real do Firestore —
+// se mencionar um índice/permissão, o link de criação costuma vir aí ou na
+// consola do browser (F12 → Console).
+function mostrarErroAdmin(msg) {
+    let banner = document.getElementById('adm-erro');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'adm-erro';
+        banner.style.cssText = 'background:var(--rh-danger-bg);border:1px solid var(--rh-danger);' +
+            'color:var(--rh-danger-text);border-radius:8px;padding:14px 16px;margin-bottom:18px;font-size:13px;';
+        const statsEl = document.getElementById('adm-stats');
+        if (statsEl && statsEl.parentNode) statsEl.parentNode.insertBefore(banner, statsEl);
+        else (document.querySelector('main') || document.getElementById('app')).prepend(banner);
+    }
+    banner.innerHTML = `
+        <strong>⚠️ Não foi possível carregar todos os dados de administração.</strong>
+        <div style="margin-top:6px;white-space:pre-wrap;font-family:monospace;font-size:12px;word-break:break-word;">${esc(msg)}</div>
+        <button onclick="window._adminRecarregar()"
+            style="margin-top:10px;background:var(--rh-danger);color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;">
+            Tentar novamente
+        </button>
+        <p style="margin:8px 0 0;color:var(--rh-text-muted);font-size:12px;">
+            Causa habitual: as regras do Firestore não permitem a consulta de grupo às empresas. Confirme que publicou as
+            regras atualizadas (com a regra <code>match /{caminho=**}/empresas/{empresaId}</code>). Se o erro mencionar um
+            índice, abra o link indicado na consola do browser para o criar.
+        </p>`;
+}
+
+window._adminRecarregar = async function() {
+    await carregarTudo();
+};
 
 // ─── init() ───────────────────────────────────────────────────────────────────
 export async function init() {
@@ -337,5 +388,7 @@ export async function init() {
     }
 
     S.abaAtiva = 'empresas';
+    // carregarTudo já trata os próprios erros internamente, por isso o init
+    // nunca rebenta para o router (evita o "Página não encontrada").
     await carregarTudo();
 }

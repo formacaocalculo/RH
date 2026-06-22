@@ -47,6 +47,16 @@ service cloud.firestore {
                             (request.auth.uid == userId || ehAdmin());
     }
 
+    // Collection group query usada pela área de Administração para listar
+    // TODAS as empresas de todos os utilizadores (collectionGroup('empresas')).
+    // A regra acima só autoriza leituras DENTRO de um utilizador específico;
+    // consultas de grupo entre utilizadores precisam desta regra dedicada,
+    // com o wildcard recursivo {caminho=**}. Sem isto, a área de admin recebe
+    // "permission-denied" ao abrir. Restrita a administradores.
+    match /{caminho=**}/empresas/{empresaId} {
+      allow read: if ehAdmin();
+    }
+
     // Lista de administradores: qualquer utilizador autenticado pode LER o
     // seu próprio documento (para saber se é admin); escrita nunca é
     // permitida via app.
