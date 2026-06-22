@@ -5,14 +5,26 @@
 // de mais ninguém. Também gere a lixeira de empresas eliminadas.
 
 import {
-    isAdmin, listarTodasEmpresasAdmin, entrarNaEmpresa, moverEmpresa,
+    isAdmin, listarTodasEmpresasAdmin, entrarNaEmpresa, moverEmpresa, obterPerfis, eliminarEmpresa,
     listarLixeiraEmpresas, restaurarEmpresaDaLixeira, eliminarDaLixeiraDefinitivo
 } from './tenant.js';
 import { pedirReautenticacao } from './seguranca-dados.js';
 import { auth } from '../app.js';
 import { esc, escAttr } from './html-utils.js';
 
-let S = { empresas: [], lixeira: [], abaAtiva: 'empresas' };
+let S = { empresas: [], lixeira: [], perfis: {}, abaAtiva: 'empresas' };
+
+// Célula "Dono": mostra o email do utilizador (quando já existe perfil) e o
+// UID truncado por baixo; se não houver email conhecido, mostra só o UID.
+function donoCell(uid) {
+    const email = S.perfis[uid]?.email;
+    const uidCurto = esc((uid || '').slice(0, 12));
+    if (email) {
+        return `<div style="font-size:13px;color:var(--rh-text);">${esc(email)}</div>
+                <div style="font-family:monospace;font-size:10px;color:var(--rh-text-subtle);" title="${esc(uid)}">${uidCurto}…</div>`;
+    }
+    return `<span style="font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${esc(uid)}">${uidCurto}…</span>`;
+}
 
 // ─── render() ───────────────────────────────────────────────────────────────
 export function render() {
@@ -49,7 +61,7 @@ export function render() {
             </div>
 
             <div id="painel-empresas">
-                <input type="text" id="adm-filtro" placeholder="🔎 Pesquisar por nome, NIF ou utilizador (uid)…"
+                <input type="text" id="adm-filtro" placeholder="🔎 Pesquisar por nome, NIF, email ou UID…"
                     oninput="window._adminRenderEmpresas()"
                     style="width:100%;padding:10px 14px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;margin-bottom:16px;">
                 <div style="background:var(--rh-bg-card);border-radius:10px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.03);">
@@ -58,7 +70,7 @@ export function render() {
                             <tr style="background:var(--rh-bg-muted);text-align:left;">
                                 <th style="padding:11px 16px;">Empresa</th>
                                 <th style="padding:11px 16px;">NIF</th>
-                                <th style="padding:11px 16px;">Dono (uid)</th>
+                                <th style="padding:11px 16px;">Dono</th>
                                 <th style="padding:11px 16px;">Criada em</th>
                                 <th style="padding:11px 16px;"></th>
                             </tr>
@@ -79,7 +91,7 @@ export function render() {
                             <tr style="background:var(--rh-bg-muted);text-align:left;">
                                 <th style="padding:11px 16px;">Empresa</th>
                                 <th style="padding:11px 16px;">NIF</th>
-                                <th style="padding:11px 16px;">Dono original (uid)</th>
+                                <th style="padding:11px 16px;">Dono original</th>
                                 <th style="padding:11px 16px;">Eliminada em</th>
                                 <th style="padding:11px 16px;"></th>
                             </tr>
@@ -123,7 +135,8 @@ window._adminRenderEmpresas = function() {
         lista = lista.filter(e =>
             (e.nome || '').toLowerCase().includes(filtro) ||
             (e.nif || '').toLowerCase().includes(filtro) ||
-            (e.donoUid || '').toLowerCase().includes(filtro)
+            (e.donoUid || '').toLowerCase().includes(filtro) ||
+            (S.perfis[e.donoUid]?.email || '').toLowerCase().includes(filtro)
         );
     }
     const tbody = document.getElementById('tbody-adm-empresas');
@@ -135,7 +148,7 @@ window._adminRenderEmpresas = function() {
         <tr style="border-top:1px solid var(--rh-border);">
             <td style="padding:11px 16px;font-weight:500;">${esc(e.nome)}</td>
             <td style="padding:11px 16px;font-family:monospace;font-size:12px;color:var(--rh-text-muted);">${esc(e.nif) || '—'}</td>
-            <td style="padding:11px 16px;font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${esc(e.donoUid)}">${esc((e.donoUid || '').slice(0, 12))}…</td>
+            <td style="padding:11px 16px;">${donoCell(e.donoUid)}</td>
             <td style="padding:11px 16px;color:var(--rh-text-muted);">${formatarData(e.criadoEm)}</td>
             <td style="padding:11px 16px;text-align:right;white-space:nowrap;">
                 <button onclick="window._adminMover('${escAttr(e.id)}','${escAttr(e.donoUid)}')"
@@ -143,8 +156,12 @@ window._adminRenderEmpresas = function() {
                     ⇄ Mover
                 </button>
                 <button onclick="window._adminEntrar('${escAttr(e.id)}','${escAttr(e.donoUid)}')"
-                    style="background:var(--rh-accent);color:var(--rh-text);border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">
+                    style="background:var(--rh-accent);color:var(--rh-text);border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;margin-right:6px;">
                     Entrar →
+                </button>
+                <button onclick="window._adminEliminarEmpresa('${escAttr(e.id)}','${escAttr(e.donoUid)}')" title="Eliminar (vai para a Lixeira)"
+                    style="background:var(--rh-bg-muted);color:var(--rh-danger);border:1px solid var(--rh-border);padding:7px 11px;border-radius:6px;cursor:pointer;font-size:12px;">
+                    🗑️
                 </button>
             </td>
         </tr>`).join('');
@@ -160,7 +177,7 @@ function renderLixeira() {
         <tr style="border-top:1px solid var(--rh-border);">
             <td style="padding:11px 16px;font-weight:500;">${esc(item.empresa?.nome) || '—'}</td>
             <td style="padding:11px 16px;font-family:monospace;font-size:12px;color:var(--rh-text-muted);">${esc(item.empresa?.nif) || '—'}</td>
-            <td style="padding:11px 16px;font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${esc(item.donoUid)}">${esc((item.donoUid || '').slice(0, 12))}…</td>
+            <td style="padding:11px 16px;">${donoCell(item.donoUid)}</td>
             <td style="padding:11px 16px;color:var(--rh-text-muted);">${formatarData(item.eliminadaEm)}</td>
             <td style="padding:11px 16px;text-align:right;white-space:nowrap;">
                 <button onclick="window._adminRestaurar('${escAttr(item.id)}')"
@@ -195,6 +212,38 @@ window._adminEntrar = async function(empresaId, donoUid) {
     window.router.navigate('dashboard');
 };
 
+// ─── Eliminar empresa (qualquer dono) ──────────────────────────────────────
+// Envia a empresa para a Lixeira (backup completo), tal como a eliminação
+// normal — mas o admin pode fazê-lo a empresas de qualquer utilizador, não só
+// às suas. O restauro devolve a empresa ao dono original.
+window._adminEliminarEmpresa = async function(empresaId, donoUid) {
+    const empresa = S.empresas.find(e => e.id === empresaId && e.donoUid === donoUid);
+    const nomeEmpresa = empresa?.nome || empresaId;
+    const emailDono = S.perfis[donoUid]?.email || ('UID ' + (donoUid || '').slice(0, 12) + '…');
+
+    if (!confirm(`Eliminar a empresa "${nomeEmpresa}" (de ${emailDono})?\n\n` +
+        `Todos os dados (colaboradores, ausências, processamentos, configurações) vão para a Lixeira, ` +
+        `de onde podem ser restaurados. O dono deixa de ter acesso.`)) return;
+
+    const ok = await pedirReautenticacao(
+        `Vai eliminar a empresa "${nomeEmpresa}". Introduza a sua password para confirmar.`
+    );
+    if (!ok) return;
+
+    try {
+        const res = await eliminarEmpresa(empresaId, donoUid);
+        if (res) {
+            alert(`Empresa "${nomeEmpresa}" eliminada e enviada para a Lixeira.`);
+            await carregarTudo();
+        } else {
+            alert('A empresa já não existe (pode ter sido eliminada entretanto).');
+            await carregarTudo();
+        }
+    } catch (e) {
+        alert('Erro ao eliminar: ' + (e?.message || e));
+    }
+};
+
 // ─── Mover empresa entre utilizadores ──────────────────────────────────────
 // Abre um modal para escolher o utilizador de destino. Os candidatos são os
 // donos já conhecidos (das empresas listadas) mais o próprio admin; também
@@ -210,7 +259,7 @@ window._adminMover = function(empresaId, donoUid) {
     if (meuUid && meuUid !== donoUid && !candidatos.includes(meuUid)) candidatos.unshift(meuUid);
 
     const opcoes = candidatos.map(u =>
-        `<option value="${escAttr(u)}">${esc(u.slice(0, 16))}…${u === meuUid ? '  (eu)' : ''}</option>`
+        `<option value="${escAttr(u)}">${esc(S.perfis[u]?.email || (u.slice(0, 16) + '…'))}${u === meuUid ? '  (eu)' : ''}</option>`
     ).join('');
 
     const overlay = document.createElement('div');
@@ -326,6 +375,19 @@ async function carregarTudo() {
         S.lixeira = [];
         console.error('[admin] listarLixeiraEmpresas falhou:', e);
         erros.push('Lixeira: ' + (e?.message || e));
+    }
+
+    // Emails dos donos (para mostrar ao lado do UID). Falha aqui é não-crítica:
+    // se não houver perfis, mostra-se só o UID.
+    try {
+        const uids = [
+            ...S.empresas.map(e => e.donoUid),
+            ...S.lixeira.map(i => i.donoUid)
+        ];
+        S.perfis = await obterPerfis(uids);
+    } catch (e) {
+        console.warn('[admin] obterPerfis falhou:', e);
+        S.perfis = {};
     }
 
     await carregarStats();

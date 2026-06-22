@@ -40,6 +40,15 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Documento de perfil do utilizador (utilizadores/{userId}) — guarda o
+    // email para a área de Administração mostrar ao lado do UID. O próprio
+    // escreve o seu; o próprio e os admins podem ler.
+    match /utilizadores/{userId} {
+      allow read: if request.auth != null &&
+                     (request.auth.uid == userId || ehAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // Dados de cada utilizador (e de todas as suas empresas e subcoleções):
     // o próprio dono, OU qualquer administrador.
     match /utilizadores/{userId}/{document=**} {

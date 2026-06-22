@@ -1,8 +1,9 @@
 // assets/js/modules/login.js
 import { auth } from '../app.js';
 import {
-    signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail
+    signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { confirmarAdminAtual, guardarPerfilProprio } from './tenant.js';
 
 export function render() {
     return `
@@ -146,13 +147,15 @@ export function init() {
         if (pass.length < 6) { alert('A password deve ter pelo menos 6 caracteres.'); return; }
         if (pass !== pass2) { alert('As passwords não coincidem.'); return; }
 
-        try {
-            await createUserWithEmailAndPassword(auth, email, pass);
-            // Conta nova fica automaticamente autenticada; o onAuthStateChanged
-            // em app.js conduz para 'empresas' (ainda sem empresas criadas).
-        } catch (error) {
-            alert('Erro: ' + error.message);
-        }
+        // A criação de contas é reservada a administradores. Pedimos as
+        // credenciais de um admin e só depois criamos a conta nova.
+        const cred = await pedirCredenciaisAdmin();
+        if (!cred) return; // cancelado
+
+        await criarContaComoAdmin({
+            novoEmail: email, novaPass: pass,
+            adminEmail: cred.email, adminPass: cred.password
+        });
     });
 
     document.getElementById('btn-recuperar').addEventListener('click', async () => {
@@ -175,4 +178,101 @@ export function init() {
             btn.textContent = 'Enviar Link de Recuperação';
         }
     });
+}
+
+// ─── Criação de contas reservada a administradores ──────────────────────────
+
+// Mostra um modal a pedir email + password de um administrador. Resolve com
+// { email, password } se confirmado, ou null se cancelado.
+function pedirCredenciaisAdmin() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9999;
+            display:flex;align-items:center;justify-content:center;font-family:sans-serif;`;
+        overlay.innerHTML = `
+            <div style="background:var(--rh-bg-card);border-radius:12px;padding:26px;width:100%;max-width:380px;box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <div style="width:38px;height:38px;border-radius:9px;background:var(--rh-primary-light);display:flex;align-items:center;justify-content:center;font-size:18px;">🔒</div>
+                    <h3 style="margin:0;font-size:16px;color:var(--rh-text);">Autorização de administrador</h3>
+                </div>
+                <p style="margin:0 0 16px;font-size:13px;color:var(--rh-text-muted);">
+                    A criação de contas é reservada a administradores. Introduza as credenciais de um administrador para continuar.
+                </p>
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Email do administrador</label>
+                <input type="email" id="adm-cred-email" autocomplete="off"
+                    style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Password do administrador</label>
+                <input type="password" id="adm-cred-pass" autocomplete="off"
+                    style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;">
+                <p id="adm-cred-erro" style="display:none;color:var(--rh-danger);font-size:12px;margin:8px 0 0;"></p>
+                <div style="display:flex;gap:8px;margin-top:18px;">
+                    <button id="adm-cred-cancelar" style="flex:1;background:var(--rh-bg-muted);color:var(--rh-text-muted);border:1px solid var(--rh-border);padding:10px;border-radius:6px;cursor:pointer;font-size:13px;">Cancelar</button>
+                    <button id="adm-cred-ok" style="flex:1;background:var(--rh-primary);color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">Continuar</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const fechar = (valor) => { overlay.remove(); resolve(valor); };
+        overlay.querySelector('#adm-cred-cancelar').addEventListener('click', () => fechar(null));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(null); });
+        overlay.querySelector('#adm-cred-ok').addEventListener('click', () => {
+            const email = overlay.querySelector('#adm-cred-email').value.trim();
+            const password = overlay.querySelector('#adm-cred-pass').value;
+            const erro = overlay.querySelector('#adm-cred-erro');
+            if (!email || !password) {
+                erro.textContent = 'Preencha email e password do administrador.';
+                erro.style.display = 'block';
+                return;
+            }
+            fechar({ email, password });
+        });
+        overlay.querySelector('#adm-cred-pass').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') overlay.querySelector('#adm-cred-ok').click();
+        });
+        setTimeout(() => overlay.querySelector('#adm-cred-email')?.focus(), 50);
+    });
+}
+
+// Valida as credenciais de admin e, se forem válidas, cria a conta nova.
+// Nota técnica: no Firebase, criar um utilizador no cliente autentica logo
+// como esse utilizador. Por isso trocamos de sessão várias vezes (admin →
+// conta nova → logout) e suprimimos os redirecionamentos do onAuthStateChanged
+// (window._suprimirRedirecionoAuth) para controlar o fluxo manualmente.
+async function criarContaComoAdmin({ novoEmail, novaPass, adminEmail, adminPass }) {
+    window._suprimirRedirecionoAuth = true;
+    try {
+        // 1. Validar as credenciais de administrador
+        await signInWithEmailAndPassword(auth, adminEmail, adminPass);
+        const ehAdmin = await confirmarAdminAtual();
+        if (!ehAdmin) {
+            await signOut(auth);
+            alert('Estas credenciais não pertencem a um administrador. A criação de contas é reservada a administradores.');
+            return;
+        }
+
+        // 2. Criar a conta nova (passa a estar autenticada como a conta nova)
+        await createUserWithEmailAndPassword(auth, novoEmail, novaPass);
+
+        // 3. Gravar o perfil (email) da conta nova para aparecer na Administração
+        try { await guardarPerfilProprio(); } catch (e) { /* não crítico */ }
+
+        // 4. Terminar a sessão — quem vai usar a conta fará login depois
+        await signOut(auth);
+
+        alert(`Conta "${novoEmail}" criada com sucesso. A pessoa já pode iniciar sessão.`);
+        window._loginMudarAba('entrar');
+        const emailEl = document.getElementById('email');
+        if (emailEl) emailEl.value = novoEmail;
+    } catch (error) {
+        // Garantir que não fica ninguém autenticado em caso de falha
+        try { await signOut(auth); } catch (e) { /* ignore */ }
+        const msg = (error && error.code === 'auth/email-already-in-use')
+            ? 'Já existe uma conta com esse email.'
+            : (error && (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found'))
+                ? 'Credenciais de administrador inválidas.'
+                : 'Erro ao criar conta: ' + (error?.message || error);
+        alert(msg);
+    } finally {
+        window._suprimirRedirecionoAuth = false;
+    }
 }

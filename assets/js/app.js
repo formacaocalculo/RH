@@ -32,6 +32,12 @@ onAuthStateChanged(auth, async (user) => {
     if (window._suprimirRedirecionoAuth) return;
 
     if (user) {
+        // Guarda/atualiza o perfil (email) para a área de Administração poder
+        // mostrar o email ao lado do UID. Não bloqueia a navegação.
+        import('./modules/tenant.js')
+            .then(m => m.guardarPerfilProprio())
+            .catch(() => {});
+
         // Com sessão válida, o router decide para onde ir: se ainda não há
         // empresa ativa escolhida vai para 'empresas'; caso contrário, para
         // 'dashboard'. Centralizar esta decisão em router.js evita duplicar

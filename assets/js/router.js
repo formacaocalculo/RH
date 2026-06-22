@@ -48,9 +48,31 @@ export async function navigate(moduleName) {
 // lógica também dentro de cada módulo.
 export async function navigateAposLogin() {
     const tenant = await import('./modules/tenant.js');
-    if (tenant.empresaAtivaId()) {
+
+    let empresas = [];
+    try {
+        empresas = await tenant.listarEmpresas();
+    } catch (e) {
+        console.warn('[router] não foi possível listar empresas:', e);
+    }
+
+    // Se a empresa "ativa" guardada já não pertence a este utilizador (ex.:
+    // sobra de uma sessão anterior ou de outra conta no mesmo browser), limpa-a
+    // para não entrar numa empresa errada.
+    const ativaId = tenant.empresaAtivaId();
+    const ativaValida = !!ativaId && empresas.some(e => e.id === ativaId);
+    if (ativaId && !ativaValida) tenant.limparEmpresaAtiva();
+
+    if (ativaValida) {
+        // Recarregar a página mantém o utilizador na empresa onde estava.
+        await navigate('dashboard');
+    } else if (empresas.length === 1) {
+        // Uma única empresa: entra logo, sem obrigar a escolher.
+        tenant.definirEmpresaAtiva(empresas[0].id);
         await navigate('dashboard');
     } else {
+        // Nenhuma (para criar a primeira) OU várias (para escolher qual usar):
+        // mostra sempre a lista "As Minhas Empresas".
         await navigate('empresas');
     }
 }

@@ -66,6 +66,20 @@ function invalidarCacheAdmin() {
     _isAdminCache = null;
 }
 
+// Verifica, SEM usar cache, se o utilizador atualmente autenticado é admin.
+// Necessário em fluxos onde acabámos de trocar de sessão (ex.: validar as
+// credenciais de um admin antes de criar uma conta nova).
+export async function confirmarAdminAtual() {
+    const u = auth.currentUser;
+    if (!u) return false;
+    try {
+        const snap = await getDoc(doc(db, 'admins', u.uid));
+        return snap.exists();
+    } catch (e) {
+        return false;
+    }
+}
+
 // Lista todas as empresas de todos os utilizadores (collection-group query).
 // Só deve ser chamada depois de confirmar isAdmin() === true — as regras do
 // Firestore bloqueiam de qualquer forma para não-admins.
@@ -259,6 +273,43 @@ export async function moverEmpresa(empresaId, uidOrigem, uidDestino) {
     if (empresaAtivaId() === empresaId) limparEmpresaAtiva();
 
     return dadosEmpresa;
+}
+
+// ─── Perfis de utilizador (email associado a cada UID) ──────────────────────
+// Os emails dos utilizadores vivem no Firebase Auth e não são consultáveis a
+// partir do Firestore. Para a área de Administração poder mostrar o email ao
+// lado do UID, guardamos um documento de perfil por utilizador em
+// utilizadores/{uid} com o email. É escrito no login (ver app.js), pelo que
+// utilizadores existentes passam a aparecer assim que voltam a entrar.
+export async function guardarPerfilProprio() {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+        await setDoc(doc(db, 'utilizadores', user.uid), {
+            email: user.email || '',
+            atualizadoEm: new Date()
+        }, { merge: true });
+    } catch (e) {
+        console.warn('[perfil] não foi possível guardar o perfil do utilizador:', e);
+    }
+}
+
+// Lê os perfis de um conjunto de UIDs e devolve um objeto { uid: { email } }.
+// Tolerante a perfis inexistentes (utilizadores que ainda não voltaram a
+// entrar desde a introdução desta funcionalidade) — nesses casos o UID
+// simplesmente não aparece no mapa e a interface mostra só o UID.
+export async function obterPerfis(uids) {
+    const unicos = [...new Set((uids || []).filter(Boolean))];
+    const mapa = {};
+    await Promise.all(unicos.map(async (uid) => {
+        try {
+            const snap = await getDoc(doc(db, 'utilizadores', uid));
+            if (snap.exists()) mapa[uid] = snap.data();
+        } catch (e) {
+            /* silencioso: cai para mostrar apenas o UID */
+        }
+    }));
+    return mapa;
 }
 
 // ─── Lixeira de empresas (administração) ────────────────────────────────────
