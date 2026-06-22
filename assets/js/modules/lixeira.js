@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { colEmpresa, docEmpresa } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
+import { esc, escAttr } from './html-utils.js';
 
 let S = { backups: [] };
 
@@ -56,7 +57,7 @@ function popularFiltroTipos() {
     if (!sel) return;
     const atual = sel.value;
     sel.innerHTML = `<option value="">Todos os tipos</option>` +
-        tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+        tipos.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
     sel.value = atual;
 }
 
@@ -92,21 +93,21 @@ function renderLista() {
         <div style="background:var(--rh-bg-card);border:1px solid var(--rh-border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 3px rgba(0,0,0,0.03);">
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                    <span style="background:var(--rh-bg-muted);color:var(--rh-text-muted);font-size:10px;font-weight:bold;text-transform:uppercase;padding:2px 8px;border-radius:10px;">${b.tipo || '—'}</span>
+                    <span style="background:var(--rh-bg-muted);color:var(--rh-text-muted);font-size:10px;font-weight:bold;text-transform:uppercase;padding:2px 8px;border-radius:10px;">${esc(b.tipo) || '—'}</span>
                     ${b.restaurado ? `<span style="background:var(--rh-success-bg);color:var(--rh-success-text);font-size:10px;font-weight:bold;padding:2px 8px;border-radius:10px;">✔ Restaurado</span>` : ''}
                 </div>
-                <div style="font-size:13px;color:var(--rh-text);font-weight:500;">${b.descricao || b.docIdOrigem}</div>
+                <div style="font-size:13px;color:var(--rh-text);font-weight:500;">${esc(b.descricao || b.docIdOrigem)}</div>
                 <div style="font-size:11px;color:var(--rh-text-subtle);margin-top:2px;">
-                    Eliminado em ${formatarData(b.eliminadoEm)} por ${b.eliminadoPor || '—'}
+                    Eliminado em ${formatarData(b.eliminadoEm)} por ${esc(b.eliminadoPor) || '—'}
                 </div>
             </div>
             <div style="display:flex;gap:8px;flex-shrink:0;">
-                <button onclick="window._lixDescarregar('${b.id}')"
+                <button onclick="window._lixDescarregar('${escAttr(b.id)}')"
                     style="background:var(--rh-bg-muted);color:var(--rh-text-muted);border:1px solid var(--rh-border);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;">
                     ⬇ .json
                 </button>
                 ${!b.restaurado ? `
-                <button onclick="window._lixRestaurar('${b.id}')"
+                <button onclick="window._lixRestaurar('${escAttr(b.id)}')"
                     style="background:var(--rh-secondary);color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">
                     ♻ Restaurar
                 </button>` : ''}

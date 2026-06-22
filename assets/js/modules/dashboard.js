@@ -2,6 +2,7 @@
 import { getDocs, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { colEmpresa, docEmpresa, empresaAtiva } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
+import { esc, escAttr } from './html-utils.js';
 
 export function render() {
     return `
@@ -103,12 +104,12 @@ async function _carregarAlertas() {
         snap.forEach(docSnap => {
             const alerta = docSnap.data();
             html += `
-            <div id="alerta-${docSnap.id}" style="display:flex; align-items:center; justify-content:space-between; background:var(--rh-warning-bg); border:1px solid var(--rh-warning); border-radius:8px; padding:12px 18px; margin-bottom:10px;">
+            <div id="alerta-${escAttr(docSnap.id)}" style="display:flex; align-items:center; justify-content:space-between; background:var(--rh-warning-bg); border:1px solid var(--rh-warning); border-radius:8px; padding:12px 18px; margin-bottom:10px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span style="font-size:20px;">⚠️</span>
-                    <span style="color:var(--rh-warning-text); font-size:14px;">${alerta.mensagem}</span>
+                    <span style="color:var(--rh-warning-text); font-size:14px;">${esc(alerta.mensagem)}</span>
                 </div>
-                <button onclick="window._resolverAlertaNIB('${docSnap.id}')" style="background:var(--rh-warning); color:var(--rh-bg-card); border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; white-space:nowrap; margin-left:16px;">
+                <button onclick="window._resolverAlertaNIB('${escAttr(docSnap.id)}')" style="background:var(--rh-warning); color:var(--rh-bg-card); border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; white-space:nowrap; margin-left:16px;">
                     Marcar como resolvido
                 </button>
             </div>`;

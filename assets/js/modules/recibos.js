@@ -7,6 +7,7 @@
 import { getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { colEmpresa, empresaAtiva } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
+import { esc, escAttr } from './html-utils.js';
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -19,7 +20,7 @@ function carregarJsPDF() {
     if (_jsPdfPromise) return _jsPdfPromise;
     _jsPdfPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.src = 'assets/vendor/jspdf.umd.min.js'; // self-hosted (ver Auditoria #5 — evita dependência de CDN sem SRI)
         script.onload = () => resolve(window.jspdf.jsPDF);
         script.onerror = () => reject(new Error('Não foi possível carregar a biblioteca de geração de PDF.'));
         document.head.appendChild(script);
@@ -73,7 +74,7 @@ function renderLista() {
         return `
         <div style="background:var(--rh-bg-card);border:1px solid var(--rh-border);border-radius:10px;overflow:hidden;">
             <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;"
-                 onclick="window._recibosToggle('${p.id}')">
+                 onclick="window._recibosToggle('${escAttr(p.id)}')">
                 <div>
                     <div style="font-size:14px;font-weight:bold;color:var(--rh-primary);">📅 ${MESES[p.mes]} de ${p.ano}</div>
                     <div style="font-size:11px;color:var(--rh-text-subtle);margin-top:2px;">
@@ -82,7 +83,7 @@ function renderLista() {
                 </div>
                 <span style="color:var(--rh-text-subtle);font-size:13px;">▾ ver recibos</span>
             </div>
-            <div id="rec-detalhe-${p.id}" style="display:none;border-top:1px solid var(--rh-border);">
+            <div id="rec-detalhe-${escAttr(p.id)}" style="display:none;border-top:1px solid var(--rh-border);">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;">
                     <thead>
                         <tr style="background:var(--rh-bg-muted);color:var(--rh-text-subtle);text-transform:uppercase;font-size:11px;">
@@ -94,10 +95,10 @@ function renderLista() {
                     <tbody>
                         ${(p.linhas || []).map(l => `
                             <tr style="border-top:1px solid var(--rh-border);">
-                                <td style="padding:10px 16px;">${l.nome}</td>
+                                <td style="padding:10px 16px;">${esc(l.nome)}</td>
                                 <td style="padding:10px 16px;text-align:right;font-weight:500;">${fmt(l.liquido)}</td>
                                 <td style="padding:10px 16px;text-align:center;">
-                                    <button onclick="window._recibosGerarPDF('${p.id}','${l.funcId}')"
+                                    <button onclick="window._recibosGerarPDF('${escAttr(p.id)}','${escAttr(l.funcId)}')"
                                         style="background:var(--rh-secondary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">
                                         ⬇ Recibo PDF
                                     </button>

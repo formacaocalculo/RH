@@ -8,6 +8,7 @@ import {
     listarEmpresas, criarEmpresa, editarEmpresa, definirEmpresaAtiva, isAdmin, eliminarEmpresa
 } from './tenant.js';
 import { pedirReautenticacao } from './seguranca-dados.js';
+import { esc, escAttr } from './html-utils.js';
 
 let S = { empresas: [], souAdmin: false, aEditarId: null };
 
@@ -100,20 +101,20 @@ function renderLista() {
     el.innerHTML = S.empresas.map(emp => `
         <div style="background:var(--rh-bg-card);border:1px solid var(--rh-border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px;">
             <div>
-                <div style="font-size:15px;font-weight:bold;color:var(--rh-primary);">🏢 ${emp.nome}</div>
+                <div style="font-size:15px;font-weight:bold;color:var(--rh-primary);">🏢 ${esc(emp.nome)}</div>
                 <div style="font-size:11px;color:var(--rh-text-subtle);margin-top:3px;">
-                    NIF: ${emp.nif || '—'}${emp.morada ? ' · ' + emp.morada : ''}
+                    NIF: ${esc(emp.nif) || '—'}${emp.morada ? ' · ' + esc(emp.morada) : ''}
                 </div>
             </div>
             <div style="display:flex;gap:8px;margin-top:auto;">
-                <button onclick="window._empresasEntrar('${emp.id}')"
+                <button onclick="window._empresasEntrar('${escAttr(emp.id)}')"
                     style="flex:1;background:var(--rh-primary);color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">
                     Entrar →
                 </button>
-                <button onclick="window._empresasEditar('${emp.id}')" title="Editar"
+                <button onclick="window._empresasEditar('${escAttr(emp.id)}')" title="Editar"
                     style="background:var(--rh-bg-muted);border:1px solid var(--rh-border);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;">✏️</button>
-                <button onclick="window._empresasEliminar('${emp.id}')" title="Eliminar"
-                    style="background:var(--rh-bg-muted);border:1px solid var(--rh-border);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--rh-danger);">🗑️</button>
+                ${S.souAdmin ? `<button onclick="window._empresasEliminar('${escAttr(emp.id)}')" title="Eliminar (só administradores)"
+                    style="background:var(--rh-bg-muted);border:1px solid var(--rh-border);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--rh-danger);">🗑️</button>` : ''}
             </div>
         </div>
     `).join('');
@@ -170,6 +171,10 @@ window._empresasEntrar = function(empresaId) {
 };
 
 window._empresasEliminar = async function(empresaId) {
+    if (!S.souAdmin) {
+        alert('Apenas administradores podem eliminar empresas.');
+        return;
+    }
     const emp = S.empresas.find(e => e.id === empresaId);
     if (!emp) return;
 
@@ -204,10 +209,13 @@ export async function init() {
     const label = document.getElementById('emp-utilizador-label');
     if (label) label.textContent = `Sessão: ${auth.currentUser?.email || ''}`;
 
+    // Determinar se é admin ANTES de desenhar a lista, para que o botão de
+    // eliminar (visível só a administradores) apareça logo no primeiro render.
+    S.souAdmin = await isAdmin();
+
     await carregar();
     renderLista();
 
-    S.souAdmin = await isAdmin();
     const btnAdmin = document.getElementById('btn-ir-admin');
     if (btnAdmin) btnAdmin.hidden = !S.souAdmin;
 }

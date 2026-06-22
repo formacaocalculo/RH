@@ -5,9 +5,12 @@
 // de mais ninguém. Também gere a lixeira de empresas eliminadas.
 
 import {
-    isAdmin, listarTodasEmpresasAdmin, entrarNaEmpresa,
+    isAdmin, listarTodasEmpresasAdmin, entrarNaEmpresa, moverEmpresa,
     listarLixeiraEmpresas, restaurarEmpresaDaLixeira, eliminarDaLixeiraDefinitivo
 } from './tenant.js';
+import { pedirReautenticacao } from './seguranca-dados.js';
+import { auth } from '../app.js';
+import { esc, escAttr } from './html-utils.js';
 
 let S = { empresas: [], lixeira: [], abaAtiva: 'empresas' };
 
@@ -130,12 +133,16 @@ window._adminRenderEmpresas = function() {
 
     tbody.innerHTML = lista.map(e => `
         <tr style="border-top:1px solid var(--rh-border);">
-            <td style="padding:11px 16px;font-weight:500;">${e.nome}</td>
-            <td style="padding:11px 16px;font-family:monospace;font-size:12px;color:var(--rh-text-muted);">${e.nif || '—'}</td>
-            <td style="padding:11px 16px;font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${e.donoUid}">${e.donoUid.slice(0, 12)}…</td>
+            <td style="padding:11px 16px;font-weight:500;">${esc(e.nome)}</td>
+            <td style="padding:11px 16px;font-family:monospace;font-size:12px;color:var(--rh-text-muted);">${esc(e.nif) || '—'}</td>
+            <td style="padding:11px 16px;font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${esc(e.donoUid)}">${esc((e.donoUid || '').slice(0, 12))}…</td>
             <td style="padding:11px 16px;color:var(--rh-text-muted);">${formatarData(e.criadoEm)}</td>
-            <td style="padding:11px 16px;text-align:right;">
-                <button onclick="window._adminEntrar('${e.id}','${e.donoUid}')"
+            <td style="padding:11px 16px;text-align:right;white-space:nowrap;">
+                <button onclick="window._adminMover('${escAttr(e.id)}','${escAttr(e.donoUid)}')"
+                    style="background:var(--rh-bg-muted);color:var(--rh-text);border:1px solid var(--rh-border);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:12px;margin-right:6px;">
+                    ⇄ Mover
+                </button>
+                <button onclick="window._adminEntrar('${escAttr(e.id)}','${escAttr(e.donoUid)}')"
                     style="background:var(--rh-accent);color:var(--rh-text);border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">
                     Entrar →
                 </button>
@@ -151,16 +158,16 @@ function renderLixeira() {
 
     tbody.innerHTML = S.lixeira.map(item => `
         <tr style="border-top:1px solid var(--rh-border);">
-            <td style="padding:11px 16px;font-weight:500;">${item.empresa?.nome || '—'}</td>
-            <td style="padding:11px 16px;font-family:monospace;font-size:12px;color:var(--rh-text-muted);">${item.empresa?.nif || '—'}</td>
-            <td style="padding:11px 16px;font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${item.donoUid}">${(item.donoUid || '').slice(0, 12)}…</td>
+            <td style="padding:11px 16px;font-weight:500;">${esc(item.empresa?.nome) || '—'}</td>
+            <td style="padding:11px 16px;font-family:monospace;font-size:12px;color:var(--rh-text-muted);">${esc(item.empresa?.nif) || '—'}</td>
+            <td style="padding:11px 16px;font-family:monospace;font-size:11px;color:var(--rh-text-subtle);" title="${esc(item.donoUid)}">${esc((item.donoUid || '').slice(0, 12))}…</td>
             <td style="padding:11px 16px;color:var(--rh-text-muted);">${formatarData(item.eliminadaEm)}</td>
             <td style="padding:11px 16px;text-align:right;white-space:nowrap;">
-                <button onclick="window._adminRestaurar('${item.id}')"
+                <button onclick="window._adminRestaurar('${escAttr(item.id)}')"
                     style="background:var(--rh-bg-muted);border:1px solid var(--rh-border);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:12px;margin-right:6px;">
                     ↺ Restaurar
                 </button>
-                <button onclick="window._adminApagarDefinitivo('${item.id}')"
+                <button onclick="window._adminApagarDefinitivo('${escAttr(item.id)}')"
                     style="background:var(--rh-danger-bg);color:var(--rh-danger-text);border:1px solid var(--rh-danger);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:12px;">
                     ✕ Apagar definitivo
                 </button>
@@ -186,6 +193,97 @@ window._adminMudarAba = function(aba) {
 window._adminEntrar = async function(empresaId, donoUid) {
     await entrarNaEmpresa(empresaId, donoUid);
     window.router.navigate('dashboard');
+};
+
+// ─── Mover empresa entre utilizadores ──────────────────────────────────────
+// Abre um modal para escolher o utilizador de destino. Os candidatos são os
+// donos já conhecidos (das empresas listadas) mais o próprio admin; também
+// permite colar manualmente um UID (ex.: mover para um utilizador que ainda
+// não tem nenhuma empresa).
+window._adminMover = function(empresaId, donoUid) {
+    const empresa = S.empresas.find(e => e.id === empresaId && e.donoUid === donoUid);
+    const nomeEmpresa = empresa?.nome || empresaId;
+    const meuUid = auth.currentUser?.uid || '';
+
+    // Lista de UIDs candidatos (distintos, exceto o dono atual)
+    const candidatos = [...new Set(S.empresas.map(e => e.donoUid))].filter(u => u && u !== donoUid);
+    if (meuUid && meuUid !== donoUid && !candidatos.includes(meuUid)) candidatos.unshift(meuUid);
+
+    const opcoes = candidatos.map(u =>
+        `<option value="${escAttr(u)}">${esc(u.slice(0, 16))}…${u === meuUid ? '  (eu)' : ''}</option>`
+    ).join('');
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9999;
+        display:flex;align-items:center;justify-content:center;font-family:sans-serif;`;
+    overlay.innerHTML = `
+        <div style="background:var(--rh-bg-card);border-radius:12px;padding:26px;width:100%;max-width:440px;box-shadow:0 12px 32px rgba(0,0,0,0.25);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                <div style="width:38px;height:38px;border-radius:9px;background:var(--rh-primary-soft);display:flex;align-items:center;justify-content:center;font-size:18px;">⇄</div>
+                <h3 style="margin:0;font-size:16px;color:var(--rh-text);">Mover Empresa</h3>
+            </div>
+            <p style="margin:0 0 16px;font-size:13px;color:var(--rh-text-muted);">
+                A empresa <strong>${esc(nomeEmpresa)}</strong> e todos os seus dados (colaboradores,
+                ausências, processamentos, configurações) serão transferidos para a conta escolhida.
+                O dono atual deixa de ter acesso.
+            </p>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Utilizador de destino</label>
+                <select id="adm-mover-sel" style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;background:var(--rh-bg-card);">
+                    ${opcoes || '<option value="">(sem outros utilizadores conhecidos)</option>'}
+                </select>
+            </div>
+            <div style="margin-bottom:8px;">
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">… ou colar um UID manualmente (tem prioridade se preenchido)</label>
+                <input type="text" id="adm-mover-uid" placeholder="UID do utilizador de destino"
+                    style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;font-family:monospace;">
+            </div>
+            <p id="adm-mover-erro" style="display:none;color:var(--rh-danger);font-size:12px;margin:4px 0 10px;"></p>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button id="adm-mover-cancelar" style="flex:1;background:var(--rh-bg-muted);color:var(--rh-text-muted);border:1px solid var(--rh-border);padding:10px;border-radius:6px;cursor:pointer;font-size:13px;">Cancelar</button>
+                <button id="adm-mover-confirmar" style="flex:1;background:var(--rh-primary);color:#fff;border:none;padding:10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">Mover empresa</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const fechar = () => overlay.remove();
+    const erroEl = overlay.querySelector('#adm-mover-erro');
+    overlay.querySelector('#adm-mover-cancelar').addEventListener('click', fechar);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fechar(); });
+
+    overlay.querySelector('#adm-mover-confirmar').addEventListener('click', async () => {
+        const manual = overlay.querySelector('#adm-mover-uid').value.trim();
+        const destino = manual || overlay.querySelector('#adm-mover-sel').value;
+        if (!destino) {
+            erroEl.textContent = 'Escolha ou cole um UID de destino.';
+            erroEl.style.display = 'block';
+            return;
+        }
+        if (destino === donoUid) {
+            erroEl.textContent = 'A empresa já pertence a esse utilizador.';
+            erroEl.style.display = 'block';
+            return;
+        }
+
+        // Mover transfere uma empresa inteira entre contas: confirmar identidade.
+        const ok = await pedirReautenticacao(
+            `Vai mover a empresa "${nomeEmpresa}" para outro utilizador. Introduza a sua password para confirmar.`
+        );
+        if (!ok) return;
+
+        const btn = overlay.querySelector('#adm-mover-confirmar');
+        btn.disabled = true; btn.textContent = 'A mover…';
+        try {
+            await moverEmpresa(empresaId, donoUid, destino);
+            fechar();
+            alert(`Empresa "${nomeEmpresa}" movida com sucesso.`);
+            await carregarTudo();
+        } catch (e) {
+            erroEl.textContent = 'Erro ao mover: ' + e.message;
+            erroEl.style.display = 'block';
+            btn.disabled = false; btn.textContent = 'Mover empresa';
+        }
+    });
 };
 
 window._adminRestaurar = async function(empresaId) {

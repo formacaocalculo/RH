@@ -214,6 +214,53 @@ export async function eliminarEmpresa(empresaId, uidAlvo) {
     return dadosEmpresa;
 }
 
+// ─── Mover empresa entre utilizadores (administração) ──────────────────────
+// Transfere uma empresa inteira (documento + todas as subcoleções) de um
+// utilizador para outro. Útil para o admin reatribuir empresas: das suas
+// contas para utilizadores, de utilizadores para si, ou entre quaisquer dois
+// utilizadores. As regras do Firestore só permitem isto a admins.
+//
+// Mantém o mesmo empresaId no destino (os ids do Firestore são únicos, pelo
+// que não há colisão prática) para preservar referências e rastreabilidade.
+export async function moverEmpresa(empresaId, uidOrigem, uidDestino) {
+    if (!uidOrigem || !uidDestino) throw new Error('Utilizador de origem ou destino em falta.');
+    if (uidOrigem === uidDestino) throw new Error('A empresa já pertence a esse utilizador.');
+
+    const refOrigem = empresaDoc(empresaId, uidOrigem);
+    const snapEmpresa = await getDoc(refOrigem);
+    if (!snapEmpresa.exists()) throw new Error('Empresa não encontrada na origem.');
+    const dadosEmpresa = snapEmpresa.data();
+
+    // 1. Ler todas as subcoleções da origem
+    const dump = {};
+    for (const nome of SUBCOLECOES_EMPRESA) {
+        const subSnap = await getDocs(collection(refOrigem, nome));
+        dump[nome] = [];
+        subSnap.forEach(d => dump[nome].push({ id: d.id, data: d.data() }));
+    }
+
+    // 2. Escrever no destino (documento da empresa + subcoleções)
+    const refDestino = empresaDoc(empresaId, uidDestino);
+    await setDoc(refDestino, dadosEmpresa);
+    for (const nome of SUBCOLECOES_EMPRESA) {
+        for (const item of dump[nome]) {
+            await setDoc(doc(refDestino, nome, item.id), item.data);
+        }
+    }
+
+    // 3. Só depois de o destino estar completo, apagar a origem
+    for (const nome of SUBCOLECOES_EMPRESA) {
+        const subSnap = await getDocs(collection(refOrigem, nome));
+        for (const d of subSnap.docs) await deleteDoc(d.ref);
+    }
+    await deleteDoc(refOrigem);
+
+    // 4. Se a empresa movida estava ativa neste cliente, limpar o contexto
+    if (empresaAtivaId() === empresaId) limparEmpresaAtiva();
+
+    return dadosEmpresa;
+}
+
 // ─── Lixeira de empresas (administração) ────────────────────────────────────
 export async function listarLixeiraEmpresas() {
     const snap = await getDocs(collection(db, 'lixeiraEmpresas'));

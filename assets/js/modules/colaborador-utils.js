@@ -3,6 +3,7 @@
 // para o horário de trabalho e a gestão de filhos/dependentes do colaborador.
 
 import { eliminarComBackup } from './seguranca-dados.js';
+import { esc, escAttr } from './html-utils.js';
 
 // ─── Habilitações Literárias / Quadro Nacional de Qualificações (QNQ) ──────
 export const NIVEIS_QUALIFICACAO = [
@@ -190,13 +191,13 @@ function _filhoLinhaHTML(prefix, filho) {
     const idade = calcularIdade(filho.nascimento);
     const idadeTxt = idade === null ? '—' : `${idade} ano${idade === 1 ? '' : 's'}`;
     return `
-    <div class="filho-linha" data-filho-id="${filho.id}"
+    <div class="filho-linha" data-filho-id="${escAttr(filho.id)}"
          style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;background:var(--rh-bg-muted);border:1px solid var(--rh-border);border-radius:6px;padding:10px;">
         <div style="flex:1 1 100%;">
             <label style="display:block;margin-bottom:3px;font-size:11px;color:var(--rh-text-subtle);">Data de Nascimento</label>
-            <input type="date" class="filho-nascimento" value="${filho.nascimento || ''}"
+            <input type="date" class="filho-nascimento" value="${esc(filho.nascimento)}"
                 style="width:100%;padding:7px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;"
-                onchange="window._colabUpdateFilho('${prefix}','${filho.id}')">
+                onchange="window._colabUpdateFilho('${prefix}','${escAttr(filho.id)}')">
         </div>
         <div style="flex:1 1 70px;">
             <label style="display:block;margin-bottom:3px;font-size:11px;color:var(--rh-text-subtle);">Idade</label>
@@ -204,11 +205,11 @@ function _filhoLinhaHTML(prefix, filho) {
         </div>
         <div style="flex:1 1 90px;">
             <label style="display:block;margin-bottom:3px;font-size:11px;color:var(--rh-text-subtle);">Grau Incap. (%)</label>
-            <input type="number" class="filho-incapacidade" min="0" max="100" placeholder="—" value="${filho.grauIncapacidade ?? ''}"
+            <input type="number" class="filho-incapacidade" min="0" max="100" placeholder="—" value="${esc(filho.grauIncapacidade ?? '')}"
                 style="width:100%;padding:7px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;"
-                onchange="window._colabUpdateFilho('${prefix}','${filho.id}')">
+                onchange="window._colabUpdateFilho('${prefix}','${escAttr(filho.id)}')">
         </div>
-        <button type="button" onclick="window._colabRemoveFilho('${prefix}','${filho.id}')"
+        <button type="button" onclick="window._colabRemoveFilho('${prefix}','${escAttr(filho.id)}')"
             style="background:none;border:none;color:var(--rh-danger);cursor:pointer;font-size:16px;padding:7px 4px;flex:0 0 auto;" title="Remover">✕</button>
     </div>`;
 }

@@ -15,6 +15,7 @@ import { getDocs, getDoc, setDoc, query, where } from "https://www.gstatic.com/f
 import { colEmpresa, docEmpresa, empresaAtiva } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
 import { TIPOS_LABEL, contaComoFaltaAss, usaHora, contarUnidades } from './assiduidade.js';
+import { esc, escAttr } from './html-utils.js';
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -244,7 +245,7 @@ function renderTabela(linhas) {
     const fmt = (v) => v.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
     tbody.innerHTML = linhas.map((l, i) => `
         <tr style="border-bottom:1px solid var(--rh-border);background:${i % 2 === 0 ? 'var(--rh-bg-card)' : 'var(--rh-bg-muted)'};">
-            <td style="padding:11px 16px;font-weight:500;color:var(--rh-primary-dark);">${l.nome}</td>
+            <td style="padding:11px 16px;font-weight:500;color:var(--rh-primary-dark);">${esc(l.nome)}</td>
             <td style="padding:11px 16px;text-align:right;">${fmt(l.vencimentoBase)}</td>
             <td style="padding:11px 16px;text-align:right;color:var(--rh-secondary);">${fmt(l.subsidioRefeicao)}</td>
             <td style="padding:11px 16px;text-align:right;color:var(--rh-warning);">−${fmt(l.descontoSS)}</td>

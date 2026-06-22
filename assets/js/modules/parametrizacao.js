@@ -2,6 +2,7 @@
 import { getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { docEmpresa, empresaAtivaId, editarEmpresa, empresaAtiva } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
+import { esc, escAttr } from './html-utils.js';
 
 export function render() {
     return `
@@ -134,9 +135,9 @@ function atualizarInterfaceFeriados(lista, feriadosAtivos = []) {
         
         container.innerHTML += `
             <div style="display: flex; align-items: center; padding: 8px 12px; margin-bottom: 6px; background: var(--rh-bg-card); border: 1px solid var(--rh-border); border-radius: 6px; font-size: 13px;">
-                <input type="checkbox" class="check-feriado" data-nome="${f.nome}" ${isChecked ? 'checked' : ''} style="margin-right: 12px; transform: scale(1.2);">
+                <input type="checkbox" class="check-feriado" data-nome="${esc(f.nome)}" ${isChecked ? 'checked' : ''} style="margin-right: 12px; transform: scale(1.2);">
                 <span style="font-weight: bold; color: var(--rh-primary); background-color: var(--rh-primary-soft); padding: 2px 8px; border-radius: 4px; font-family: monospace; min-width: 45px;">${f.data}</span>
-                <span style="font-weight: 500; color: var(--rh-primary-dark); flex: 1; margin-left: 15px;">${f.nome}</span>
+                <span style="font-weight: 500; color: var(--rh-primary-dark); flex: 1; margin-left: 15px;">${esc(f.nome)}</span>
             </div>
         `;
     });

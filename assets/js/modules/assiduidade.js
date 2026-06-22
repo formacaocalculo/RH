@@ -6,6 +6,7 @@ import { feriadosPortugal } from './ferias-utils.js';
 import { eliminarComBackup } from './seguranca-dados.js';
 import { colEmpresa, docEmpresa } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
+import { esc, escAttr } from './html-utils.js';
 
 // ─── Tipos de ausência ────────────────────────────────────────────────────────
 // Cada ausência guardada no Firestore em "ausencias/{funcId}" tem a forma:
@@ -364,7 +365,7 @@ export function render() {
                                 <label style="display:block;margin-bottom:5px;font-weight:500;color:var(--rh-text-muted);font-size:12px;">Tipo de Ausência</label>
                                 <select id="aus-tipo" style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;background:var(--rh-bg-card);">
                                     ${GRUPOS_SELECT.map(g => `
-                                        <optgroup label="${g.titulo}">
+                                        <optgroup label="${esc(g.titulo)}">
                                             ${g.tipos.map(t => `<option value="${t}">${TIPOS_LABEL[t].emoji} ${TIPOS_LABEL[t].label}</option>`).join('')}
                                         </optgroup>`).join('')}
                                 </select>
@@ -619,15 +620,15 @@ function renderLista() {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                 <span style="font-size:12px;font-weight:bold;color:${t.cor};">${t.emoji} ${t.label}</span>
                 <div style="display:flex;gap:10px;">
-                    <button onclick="window._ausEditar('${a.id}')"
+                    <button onclick="window._ausEditar('${escAttr(a.id)}')"
                         style="background:none;border:none;cursor:pointer;color:var(--rh-text-subtle);font-size:13px;padding:0 2px;" title="Editar">✏️</button>
-                    <button onclick="window._ausEliminar('${a.id}')"
+                    <button onclick="window._ausEliminar('${escAttr(a.id)}')"
                         style="background:none;border:none;cursor:pointer;color:var(--rh-text-subtle);font-size:14px;padding:0 2px;" title="Eliminar">✕</button>
                 </div>
             </div>
             <div style="font-size:11px;color:var(--rh-text-muted);">
                 📅 ${periodoTxt}
-                ${a.nota ? `<br>📝 ${a.nota}` : ''}
+                ${a.nota ? `<br>📝 ${esc(a.nota)}` : ''}
                 <br><span style="color:var(--rh-text-subtle);">${t.baseLegal}</span> · <span style="color:var(--rh-text-muted);">Sub. refeição: ${sub}</span>
             </div>
         </div>`;

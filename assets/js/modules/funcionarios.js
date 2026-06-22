@@ -5,6 +5,7 @@ import { calcularDireitoFerias } from './ferias-utils.js';
 import { eliminarComBackup } from './seguranca-dados.js';
 import { colEmpresa, docEmpresa } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
+import { esc, escAttr } from './html-utils.js';
 
 export function render() {
     return `
@@ -158,13 +159,13 @@ function _renderTabela(lista) {
         const dispBadge  = `<span style="background:${dispBg};color:${dispColor};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;">${disponiveis}</span>`;
 
         return `
-        <tr onclick="window._abrirFicha('${f.id}')"
+        <tr onclick="window._abrirFicha('${escAttr(f.id)}')"
             style="border-bottom:1px solid var(--rh-border);background:${rowBg};cursor:pointer;transition:background .12s;"
             onmouseover="this.style.background='var(--rh-primary-soft)'"
             onmouseout="this.style.background='${rowBg}'">
-            <td style="padding:12px 16px;font-weight:500;color:var(--rh-primary-dark);">${f.nome || '—'}</td>
-            <td style="padding:12px 16px;color:var(--rh-text-muted);font-family:monospace;font-size:13px;">${f.nif || '—'}</td>
-            <td style="padding:12px 16px;color:var(--rh-text-muted);">${f.cargo || '—'}</td>
+            <td style="padding:12px 16px;font-weight:500;color:var(--rh-primary-dark);">${esc(f.nome) || '—'}</td>
+            <td style="padding:12px 16px;color:var(--rh-text-muted);font-family:monospace;font-size:13px;">${esc(f.nif) || '—'}</td>
+            <td style="padding:12px 16px;color:var(--rh-text-muted);">${esc(f.cargo) || '—'}</td>
             <td style="padding:12px 16px;color:var(--rh-text-muted);">${admissao}</td>
             <td style="padding:12px 16px;text-align:right;color:var(--rh-primary-dark);font-weight:500;">${salario}</td>
             <td style="padding:12px 16px;text-align:center;">${nibBadge}</td>
@@ -172,9 +173,9 @@ function _renderTabela(lista) {
             <td style="padding:12px 16px;text-align:center;">${marcBadge}</td>
             <td style="padding:12px 16px;text-align:center;">${dispBadge}</td>
             <td style="padding:12px 16px;text-align:center;" onclick="event.stopPropagation()">
-                <button onclick="window._abrirFicha('${f.id}')" title="Editar"
+                <button onclick="window._abrirFicha('${escAttr(f.id)}')" title="Editar"
                     style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;">✏️</button>
-                <button onclick="window._funcEliminar('${f.id}')" title="Eliminar"
+                <button onclick="window._funcEliminar('${escAttr(f.id)}')" title="Eliminar"
                     style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;color:var(--rh-danger);">🗑️</button>
             </td>
         </tr>`;
@@ -211,7 +212,7 @@ export async function init() {
                             border:1px solid var(--rh-warning);border-radius:8px;padding:10px 16px;margin-bottom:8px;">
                     <span>⚠️</span>
                     <span style="color:var(--rh-warning-text);font-size:13px;">
-                        O funcionário <strong>${f.nome}</strong> (NIF: ${f.nif}) ainda não forneceu NIB.
+                        O funcionário <strong>${esc(f.nome)}</strong> (NIF: ${esc(f.nif)}) ainda não forneceu NIB.
                     </span>
                 </div>`).join('');
         }

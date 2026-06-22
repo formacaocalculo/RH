@@ -24,6 +24,7 @@ import {
     setDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { colEmpresa, docEmpresa } from './tenant.js';
+import { esc } from './html-utils.js';
 
 // ─── Modal de reautenticação ───────────────────────────────────────────────
 // Devolve uma Promise<boolean>: true se a password foi confirmada com sucesso.
@@ -43,15 +44,15 @@ export function pedirReautenticacao(mensagem) {
                     <div style="width:38px;height:38px;border-radius:9px;background:var(--rh-danger-bg);display:flex;align-items:center;justify-content:center;font-size:18px;">🔒</div>
                     <h3 style="margin:0;font-size:16px;color:var(--rh-text);">Confirmar Identidade</h3>
                 </div>
-                <p style="margin:0 0 16px;font-size:13px;color:var(--rh-text-muted);">${mensagem || 'Esta ação elimina dados permanentemente. Introduza a sua password para confirmar.'}</p>
+                <p style="margin:0 0 16px;font-size:13px;color:var(--rh-text-muted);">${esc(mensagem) || 'Esta ação elimina dados permanentemente. Introduza a sua password para confirmar.'}</p>
                 <div style="margin-bottom:10px;">
                     <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Email</label>
-                    <input type="email" id="seg-email" value="${auth.currentUser?.email || ''}" readonly
+                    <input type="email" id="seg-email" value="${esc(auth.currentUser?.email)}" readonly
                         style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--rh-bg-muted);color:var(--rh-text-muted);">
                 </div>
                 <div style="margin-bottom:8px;">
                     <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Password</label>
-                    <input type="password" id="seg-password" placeholder="••••••••"
+                    <input type="password" id="seg-password"
                         style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;">
                 </div>
                 <p id="seg-erro" style="display:none;color:var(--rh-danger);font-size:12px;margin:4px 0 12px;"></p>
