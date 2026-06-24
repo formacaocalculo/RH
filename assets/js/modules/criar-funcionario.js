@@ -85,6 +85,18 @@ export function render() {
                         <input type="number" id="func-salario" min="0" step="0.01" placeholder="0.00" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
                     </div>
                     <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Subsídio de Refeição (€/dia)</label>
+                        <input type="number" id="func-subsidio-dia" min="0" step="0.01" placeholder="Vazio = usa o valor da empresa" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
+                        <small style="color:var(--rh-text-subtle); font-size:11px;">Deixe vazio para usar o valor definido na Parametrização da empresa.</small>
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Forma de pagamento do subsídio</label>
+                        <select id="func-subsidio-modo" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px; background:var(--rh-bg-card);">
+                            <option value="dinheiro" selected>Em dinheiro (no vencimento)</option>
+                            <option value="cartao">Em cartão refeição (à parte)</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Categoria IRS</label>
                         <select id="func-irs" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px; background:var(--rh-bg-card);">
                             <option value="NHR">Não Habitual (NHR)</option>
@@ -367,6 +379,8 @@ export async function init() {
             departamento: document.getElementById('func-departamento').value.trim(),
             admissao,
             salarioBase:  salario,
+            subsidioRefeicaoDia: (document.getElementById('func-subsidio-dia').value === '' ? null : parseFloat(document.getElementById('func-subsidio-dia').value)),
+            subsidioRefeicaoModo: document.getElementById('func-subsidio-modo').value,
             categoriaIRS: document.getElementById('func-irs').value,
             taxaIRS: parseFloat(document.getElementById('func-taxa-irs').value) || 0,
             qualificacao: document.getElementById('func-qualificacao').value || null,

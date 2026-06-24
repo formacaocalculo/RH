@@ -105,6 +105,15 @@ function empresaDoc(empresaId, uidAlvo) {
     return doc(db, 'utilizadores', u, 'empresas', empresaId);
 }
 
+// Helpers para a Administração ler subcoleções de QUALQUER empresa (de qualquer
+// dono) sem mexer na empresa ativa do cliente. Usados pelos relatórios globais.
+export function colDeEmpresa(empresaId, donoUid, nomeColecao) {
+    return collection(empresaDoc(empresaId, donoUid), nomeColecao);
+}
+export function docDeEmpresa(empresaId, donoUid, nomeColecao, docId) {
+    return doc(empresaDoc(empresaId, donoUid), nomeColecao, docId);
+}
+
 // Caminho para uma subcoleção dentro da empresa ATIVA (ex.: 'funcionarios').
 export function colEmpresa(nomeColecao) {
     const empresaId = empresaAtivaId();

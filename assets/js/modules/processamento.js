@@ -23,7 +23,7 @@ let S = {
     ano: new Date().getFullYear(),
     mes: new Date().getMonth(),
     funcionarios: [],
-    parametros: { subsidioRefeicao: 0, horasMinSubsidio: 0, taxaSSTrabalhador: 11, taxaSSEntidade: 23.75 },
+    parametros: { subsidioRefeicao: 0, horasMinSubsidio: 0, taxaSSTrabalhador: 11, taxaSSEntidade: 23.75, horasMensais: 176, multiplicadorHoraExtra: 1.25 },
     linhasCalculadas: [],
 };
 
@@ -60,6 +60,7 @@ export function render() {
                         <tr style="background:var(--rh-bg-muted);color:var(--rh-text-subtle);text-transform:uppercase;font-size:11px;border-bottom:2px solid var(--rh-border);">
                             <th style="padding:12px 16px;text-align:left;">Colaborador</th>
                             <th style="padding:12px 16px;text-align:right;">Vencimento Base</th>
+                            <th style="padding:12px 16px;text-align:right;">Horas Extra</th>
                             <th style="padding:12px 16px;text-align:right;">Sub. Refeição</th>
                             <th style="padding:12px 16px;text-align:right;">Desc. SS</th>
                             <th style="padding:12px 16px;text-align:right;">Ret. IRS</th>
@@ -92,6 +93,24 @@ function diasUteisDoMes(ano, mes) {
     for (let d = 1; d <= total; d++) {
         const wd = new Date(ano, mes, d).getDay();
         if (wd !== 0 && wd !== 6) uteis++;
+    }
+    return uteis;
+}
+
+// Dias úteis do mês em que o colaborador esteve EFETIVAMENTE ao serviço,
+// considerando a data de admissão e a data de cessação (mês incompleto).
+function diasUteisAtivosDoMes(ano, mes, admissaoStr, cessacaoStr) {
+    const total = new Date(ano, mes + 1, 0).getDate();
+    const adm = admissaoStr ? new Date(admissaoStr + 'T00:00:00') : null;
+    const ces = cessacaoStr ? new Date(cessacaoStr + 'T00:00:00') : null;
+    let uteis = 0;
+    for (let d = 1; d <= total; d++) {
+        const dt = new Date(ano, mes, d);
+        const wd = dt.getDay();
+        if (wd === 0 || wd === 6) continue;
+        if (adm && dt < adm) continue;   // antes da admissão
+        if (ces && dt > ces) continue;   // depois da cessação
+        uteis++;
     }
     return uteis;
 }
@@ -157,18 +176,52 @@ async function calcularLinha(func, ano, mes, diasUteisMes) {
     const semSubsidioParcial = diasSemSubsidioPorFaltaParcial(func, ausencias, diasComFaltaParcial);
 
     const salarioBase = func.salarioBase || 0;
-    const proporcao = diasUteisMes > 0 ? Math.max(diasUteisMes - diasDesconto, 0) / diasUteisMes : 1;
+    // Dias úteis em que esteve ao serviço (trata admissão/cessação a meio do mês).
+    const diasUteisAtivos = diasUteisAtivosDoMes(ano, mes, func.admissao, func.dataCessacao);
+    const proporcao = diasUteisMes > 0 ? Math.max(diasUteisAtivos - diasDesconto, 0) / diasUteisMes : 1;
     const vencimentoBase = Math.round(salarioBase * proporcao * 100) / 100;
 
-    const diasComSubsidio = Math.max(diasUteisMes - diasDesconto - semSubsidioParcial, 0);
-    const subsidioRefeicao = Math.round(diasComSubsidio * (S.parametros.subsidioRefeicao || 0) * 100) / 100;
+    const diasComSubsidio = Math.max(diasUteisAtivos - diasDesconto - semSubsidioParcial, 0);
+    // Subsídio de refeição: valor/dia por colaborador (func.subsidioRefeicaoDia)
+    // com recuo ao valor da empresa (Parametrização).
+    const valorSubDia = (func.subsidioRefeicaoDia !== undefined && func.subsidioRefeicaoDia !== null && func.subsidioRefeicaoDia !== '')
+        ? Number(func.subsidioRefeicaoDia)
+        : (S.parametros.subsidioRefeicao || 0);
+    const subsidioRefeicao = Math.round(diasComSubsidio * valorSubDia * 100) / 100;
+    // Pago em cartão? Nesse caso aparece no recibo mas NÃO entra no líquido em
+    // dinheiro (é carregado no cartão à parte).
+    const subsidioEmCartao = func.subsidioRefeicaoModo === 'cartao';
 
-    const baseIncidencia = vencimentoBase;
+    // Horas suplementares: só as APROVADAS na folha de horas deste período entram
+    // no vencimento (respeita o fluxo RASCUNHO→…→APROVADO_RH do Registo de Horas).
+    // Exceção: se o colaborador estiver em regime de BANCO DE HORAS, as horas
+    // extra são creditadas no banco e NÃO são pagas aqui.
+    let horasExtra = 0;
+    if ((func.tratamentoHorasExtra || 'pagar') !== 'banco') {
+        try {
+            const fId = `${func.id}_${ano}-${String(mes + 1).padStart(2, '0')}`;
+            const fSnap = await getDoc(docEmpresa('folhasHoras', fId));
+            if (fSnap.exists()) {
+                const fd = fSnap.data();
+                if (fd.estado === 'APROVADO_RH' || fd.estado === 'PROCESSADO_SALARIO') {
+                    horasExtra = Number(fd.totais?.extra) || 0;
+                }
+            }
+        } catch (e) { /* sem folha de horas */ }
+    }
+
+    const horasMensais = S.parametros.horasMensais || 176;
+    const valorHora = horasMensais > 0 ? salarioBase / horasMensais : 0;
+    const valorHorasExtra = Math.round(horasExtra * valorHora * (S.parametros.multiplicadorHoraExtra || 1) * 100) / 100;
+
+    // Horas extra estão sujeitas a SS e IRS (entram na base de incidência);
+    // o subsídio de refeição não entra (como já era).
+    const baseIncidencia = vencimentoBase + valorHorasExtra;
     const descontoSS = Math.round(baseIncidencia * (S.parametros.taxaSSTrabalhador || 0) / 100 * 100) / 100;
     const taxaIRS = func.taxaIRS || 0;
     const retencaoIRS = Math.round(baseIncidencia * taxaIRS / 100 * 100) / 100;
 
-    const liquido = Math.round((vencimentoBase + subsidioRefeicao - descontoSS - retencaoIRS) * 100) / 100;
+    const liquido = Math.round((vencimentoBase + valorHorasExtra + (subsidioEmCartao ? 0 : subsidioRefeicao) - descontoSS - retencaoIRS) * 100) / 100;
 
     return {
         funcId: func.id,
@@ -177,9 +230,15 @@ async function calcularLinha(func, ano, mes, diasUteisMes) {
         cargo: func.cargo || '',
         salarioBase,
         diasUteisMes,
+        diasUteisAtivos,
         diasDesconto,
         vencimentoBase,
+        horasExtra,
+        valorHora: Math.round(valorHora * 100) / 100,
+        valorHorasExtra,
         subsidioRefeicao,
+        subsidioModo: subsidioEmCartao ? 'cartao' : 'dinheiro',
+        subsidioEmCartao,
         descontoSS,
         taxaSSTrabalhador: S.parametros.taxaSSTrabalhador,
         retencaoIRS,
@@ -197,8 +256,18 @@ window._procCalcular = async function() {
     S.mes = parseInt(document.getElementById('proc-mes').value);
 
     const diasUteisMes = diasUteisDoMes(S.ano, S.mes);
+    const mm = String(S.mes + 1).padStart(2, '0');
+    const inicioMes = `${S.ano}-${mm}-01`;
+    const fimMes = `${S.ano}-${mm}-${String(new Date(S.ano, S.mes + 1, 0).getDate()).padStart(2, '0')}`;
+    // Elegíveis para este mês: admitidos até ao fim do mês e, se já cessaram,
+    // só até ao mês da cessação (inclusive). Ativos sem cessação entram sempre.
+    const elegiveis = S.funcionarios.filter(f => {
+        if (f.admissao && f.admissao > fimMes) return false;
+        if (f.dataCessacao) return f.dataCessacao >= inicioMes;
+        return f.ativo !== false;
+    });
     const linhas = [];
-    for (const func of S.funcionarios) {
+    for (const func of elegiveis) {
         linhas.push(await calcularLinha(func, S.ano, S.mes, diasUteisMes));
     }
     S.linhasCalculadas = linhas;
@@ -211,7 +280,7 @@ window._procCalcular = async function() {
 };
 
 function renderResumo(linhas) {
-    const totalBruto = linhas.reduce((s, l) => s + l.vencimentoBase + l.subsidioRefeicao, 0);
+    const totalBruto = linhas.reduce((s, l) => s + l.vencimentoBase + (l.valorHorasExtra || 0) + l.subsidioRefeicao, 0);
     const totalSS = linhas.reduce((s, l) => s + l.descontoSS, 0);
     const totalIRS = linhas.reduce((s, l) => s + l.retencaoIRS, 0);
     const totalLiquido = linhas.reduce((s, l) => s + l.liquido, 0);
@@ -239,7 +308,7 @@ function renderResumo(linhas) {
 function renderTabela(linhas) {
     const tbody = document.getElementById('proc-tbody');
     if (!linhas.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--rh-text-subtle);font-style:italic;">Nenhum colaborador ativo encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--rh-text-subtle);font-style:italic;">Nenhum colaborador ativo encontrado.</td></tr>`;
         return;
     }
     const fmt = (v) => v.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
@@ -247,6 +316,7 @@ function renderTabela(linhas) {
         <tr style="border-bottom:1px solid var(--rh-border);background:${i % 2 === 0 ? 'var(--rh-bg-card)' : 'var(--rh-bg-muted)'};">
             <td style="padding:11px 16px;font-weight:500;color:var(--rh-primary-dark);">${esc(l.nome)}</td>
             <td style="padding:11px 16px;text-align:right;">${fmt(l.vencimentoBase)}</td>
+            <td style="padding:11px 16px;text-align:right;color:var(--rh-warning-text);">${l.valorHorasExtra > 0 ? fmt(l.valorHorasExtra) + ` <span style="font-size:10px;color:var(--rh-text-subtle);">(${l.horasExtra}h)</span>` : '—'}</td>
             <td style="padding:11px 16px;text-align:right;color:var(--rh-secondary);">${fmt(l.subsidioRefeicao)}</td>
             <td style="padding:11px 16px;text-align:right;color:var(--rh-warning);">−${fmt(l.descontoSS)}</td>
             <td style="padding:11px 16px;text-align:right;color:var(--rh-danger);">−${fmt(l.retencaoIRS)}</td>
@@ -291,11 +361,13 @@ export async function init() {
             S.parametros.horasMinSubsidio = pd.horasMinSubsidio || 0;
             S.parametros.taxaSSTrabalhador = pd.taxaSSTrabalhador ?? 11;
             S.parametros.taxaSSEntidade = pd.taxaSSEntidade ?? 23.75;
+            S.parametros.horasMensais = pd.horasMensais || 176;
+            S.parametros.multiplicadorHoraExtra = pd.multiplicadorHoraExtra ?? 1.25;
         }
     } catch (e) { console.warn('Erro ao carregar parâmetros:', e); }
 
     try {
-        const snap = await getDocs(query(colEmpresa('funcionarios'), where('ativo', '==', true)));
+        const snap = await getDocs(colEmpresa('funcionarios'));
         S.funcionarios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (e) {
         document.getElementById('proc-status').innerHTML = `<p style="color:var(--rh-danger);">Erro ao carregar colaboradores: ${e.message}</p>`;

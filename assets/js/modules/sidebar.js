@@ -12,8 +12,12 @@ const NAV_ITEMS = [
     { rota: 'funcionarios',      icone: '👥', label: 'Colaboradores',      secao: 'Gestão' },
     { rota: 'criar-funcionario', icone: '➕', label: 'Novo Funcionário',   secao: 'Gestão' },
     { rota: 'assiduidade',       icone: '📅', label: 'Assiduidade',        secao: 'Gestão' },
+    { rota: 'registo-horas',     icone: '⏱️', label: 'Registo de Horas',   secao: 'Gestão' },
     { rota: 'processamento',     icone: '💶', label: 'Processamento',      secao: 'Gestão' },
     { rota: 'recibos',           icone: '📄', label: 'Recibos',            secao: 'Gestão' },
+    { rota: 'mapa-ferias',          icone: '🏖️', label: 'Mapa de Férias',        secao: 'Relatórios' },
+    { rota: 'mapa-assiduidade',     icone: '📈', label: 'Mapa de Assiduidade',   secao: 'Relatórios' },
+    { rota: 'listagem-vencimentos', icone: '💶', label: 'Vencimentos',           secao: 'Relatórios' },
     { rota: 'parametrizacao',    icone: '⚙️', label: 'Parametrização',     secao: 'Configurações' },
     { rota: 'lixeira',           icone: '🗑️', label: 'Lixo / Repor Dados', secao: 'Configurações' },
 ];

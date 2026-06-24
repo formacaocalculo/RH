@@ -49,11 +49,59 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Dados de cada utilizador (e de todas as suas empresas e subcoleções):
-    // o próprio dono, OU qualquer administrador.
+    // Dados de cada utilizador: LEITURA abrangente (o dono ou um admin podem
+    // ler tudo dentro de utilizadores/{userId}/**). A ESCRITA é definida abaixo
+    // por tipo de coleção, para podermos impor imutabilidade onde é preciso.
     match /utilizadores/{userId}/{document=**} {
-      allow read, write: if request.auth != null &&
-                            (request.auth.uid == userId || ehAdmin());
+      allow read: if request.auth != null &&
+                     (request.auth.uid == userId || ehAdmin());
+    }
+
+    // Escrita do documento da empresa.
+    match /utilizadores/{userId}/empresas/{empresaId} {
+      allow write: if request.auth != null &&
+                      (request.auth.uid == userId || ehAdmin());
+    }
+
+    // Escrita das subcoleções "normais" (funcionarios, ausencias, processamentos,
+    // configuracoes, backups, alertas_dashboard, periodosTrabalho, …). Exclui as
+    // coleções de registo de horas, que têm regras próprias logo abaixo.
+    match /utilizadores/{userId}/empresas/{empresaId}/{colecao}/{docId} {
+      allow write: if request.auth != null &&
+                      (request.auth.uid == userId || ehAdmin()) &&
+                      !(colecao in ['registosTempo', 'auditLog', 'eventos', 'folhasHoras', 'bancoHoras']);
+    }
+
+    // REGISTO DE HORAS — coleções APPEND-ONLY (imutáveis): uma vez criadas,
+    // nunca podem ser alteradas nem apagadas. As correções fazem-se com NOVOS
+    // registos (anulação + correção). É isto que garante a integridade e a
+    // auditoria do histórico de horas.
+    match /utilizadores/{userId}/empresas/{empresaId}/registosTempo/{id} {
+      allow create: if request.auth != null && (request.auth.uid == userId || ehAdmin());
+      allow update, delete: if false;
+    }
+    match /utilizadores/{userId}/empresas/{empresaId}/auditLog/{id} {
+      allow create: if request.auth != null && (request.auth.uid == userId || ehAdmin());
+      allow update, delete: if false;
+    }
+    match /utilizadores/{userId}/empresas/{empresaId}/eventos/{id} {
+      allow create: if request.auth != null && (request.auth.uid == userId || ehAdmin());
+      allow update, delete: if false;
+    }
+    // Banco de horas — movimentos APPEND-ONLY (créditos e débitos). O saldo é a
+    // soma dos movimentos; correções fazem-se com novos movimentos.
+    match /utilizadores/{userId}/empresas/{empresaId}/bancoHoras/{id} {
+      allow create: if request.auth != null && (request.auth.uid == userId || ehAdmin());
+      allow update, delete: if false;
+    }
+
+    // FOLHA DE HORAS — máquina de estados: pode ser criada e atualizada, mas o
+    // estado só pode AVANÇAR (estadoOrdem nunca diminui) e nunca pode ser apagada.
+    match /utilizadores/{userId}/empresas/{empresaId}/folhasHoras/{id} {
+      allow create: if request.auth != null && (request.auth.uid == userId || ehAdmin());
+      allow update: if request.auth != null && (request.auth.uid == userId || ehAdmin())
+                    && request.resource.data.estadoOrdem >= resource.data.estadoOrdem;
+      allow delete: if false;
     }
 
     // Collection group query usada pela área de Administração para listar

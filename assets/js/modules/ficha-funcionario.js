@@ -254,6 +254,10 @@ window._fichaGuardarProfissionais = async function() {
     const departamento = document.getElementById('ficha-prof-departamento').value.trim();
     const admissao = document.getElementById('ficha-prof-admissao').value;
     const salarioBase = parseFloat(document.getElementById('ficha-prof-salario').value) || 0;
+    const subDiaRaw = document.getElementById('ficha-prof-subsidio-dia').value;
+    const subsidioRefeicaoDia = subDiaRaw === '' ? null : (parseFloat(subDiaRaw) || 0);
+    const subsidioRefeicaoModo = document.getElementById('ficha-prof-subsidio-modo').value;
+    const dataCessacao = document.getElementById('ficha-prof-cessacao').value || null;
     const categoriaIRS = document.getElementById('ficha-prof-irs').value;
     const taxaIRS = parseFloat(document.getElementById('ficha-prof-taxa-irs').value);
     const qualificacao = document.getElementById('ficha-prof-qualificacao').value || null;
@@ -262,7 +266,7 @@ window._fichaGuardarProfissionais = async function() {
 
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
-        const dadosProf = { cargo, departamento, admissao, salarioBase, categoriaIRS, taxaIRS: isNaN(taxaIRS) ? 0 : taxaIRS, qualificacao };
+        const dadosProf = { cargo, departamento, admissao, dataCessacao, salarioBase, subsidioRefeicaoDia, subsidioRefeicaoModo, categoriaIRS, taxaIRS: isNaN(taxaIRS) ? 0 : taxaIRS, qualificacao };
         await updateDoc(docEmpresa('funcionarios', S.funcId), dadosProf);
         Object.assign(S.func, dadosProf);
         // O direito a férias depende da data de admissão: recalcula caso tenha mudado
@@ -481,9 +485,27 @@ export function render() {
                             style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Data de Cessação (se aplicável)</label>
+                        <input type="date" id="ficha-prof-cessacao"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                        <small style="color:var(--rh-text-subtle);font-size:10px;">Preenche para processar o último mês em proporção. Depois desse mês deixa de ser processado.</small>
+                    </div>
+                    <div style="margin-bottom:10px;">
                         <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Salário Base Bruto (€)</label>
                         <input type="number" id="ficha-prof-salario" min="0" step="0.01" placeholder="0.00"
                             style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Subsídio de Refeição (€/dia)</label>
+                        <input type="number" id="ficha-prof-subsidio-dia" min="0" step="0.01" placeholder="Vazio = valor da empresa"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Forma de pagamento do subsídio</label>
+                        <select id="ficha-prof-subsidio-modo" style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;background:var(--rh-bg-card);">
+                            <option value="dinheiro">Em dinheiro (no vencimento)</option>
+                            <option value="cartao">Em cartão refeição (à parte)</option>
+                        </select>
                     </div>
                     <div style="margin-bottom:10px;">
                         <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Categoria IRS</label>
@@ -579,6 +601,9 @@ export async function init() {
     setVal('ficha-prof-departamento', S.func.departamento);
     setVal('ficha-prof-admissao', S.func.admissao);
     setVal('ficha-prof-salario', S.func.salarioBase);
+    setVal('ficha-prof-subsidio-dia', S.func.subsidioRefeicaoDia ?? '');
+    setVal('ficha-prof-subsidio-modo', S.func.subsidioRefeicaoModo || 'dinheiro');
+    setVal('ficha-prof-cessacao', S.func.dataCessacao || '');
     setVal('ficha-prof-irs', S.func.categoriaIRS || 'solteiro');
     setVal('ficha-prof-taxa-irs', S.func.taxaIRS ?? '');
     document.getElementById('ficha-prof-qualificacao-wrap').innerHTML = renderSelectQualificacao('ficha-prof-qualificacao', S.func.qualificacao || '');

@@ -177,17 +177,23 @@ window._recibosGerarPDF = async function(procId, funcId) {
     doc.line(14, y, 196, y);
     y += 6;
 
-    linhaTabela(`Vencimento Base (${linha.diasUteisMes - linha.diasDesconto}/${linha.diasUteisMes} dias úteis)`, fmt(linha.vencimentoBase));
-    linhaTabela('Subsídio de Refeição', fmt(linha.subsidioRefeicao));
+    linhaTabela(`Vencimento Base (${(linha.diasUteisAtivos ?? linha.diasUteisMes) - linha.diasDesconto}/${linha.diasUteisMes} dias úteis)`, fmt(linha.vencimentoBase));
+    if (linha.valorHorasExtra > 0) linhaTabela(`Horas Suplementares (${linha.horasExtra}h)`, fmt(linha.valorHorasExtra));
+    if (!linha.subsidioEmCartao) linhaTabela('Subsídio de Refeição', fmt(linha.subsidioRefeicao));
     y += 2;
     doc.line(14, y, 196, y);
     y += 7;
-    linhaTabela(`Desconto Segurança Social (${linha.taxaSSTrabalhador}%)`, '−' + fmt(linha.descontoSS));
-    linhaTabela(`Retenção IRS (${linha.taxaIRS}%)`, '−' + fmt(linha.retencaoIRS));
+    linhaTabela(`Desconto Segurança Social (${linha.taxaSSTrabalhador}%)`, '-' + fmt(linha.descontoSS));
+    linhaTabela(`Retenção IRS (${linha.taxaIRS}%)`, '-' + fmt(linha.retencaoIRS));
     y += 2;
     doc.line(14, y, 196, y);
     y += 9;
     linhaTabela('VENCIMENTO LÍQUIDO', fmt(linha.liquido), true);
+
+    if (linha.subsidioEmCartao && linha.subsidioRefeicao > 0) {
+        y += 8;
+        linhaTabela('Subsídio de Refeição (pago em cartão, à parte)', fmt(linha.subsidioRefeicao));
+    }
 
     y += 14;
     doc.setFont('helvetica', 'normal');

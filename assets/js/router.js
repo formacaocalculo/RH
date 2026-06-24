@@ -6,7 +6,7 @@ let _currentModule = null;
 // selecionada (empresas, admin). Todos os outros são "operacionais": só
 // fazem sentido depois de saber a que empresa os dados pertencem.
 const MODULOS_PUBLICOS = new Set(['login']);
-const MODULOS_SEM_EMPRESA = new Set(['login', 'empresas', 'admin']);
+const MODULOS_SEM_EMPRESA = new Set(['login', 'empresas', 'admin', 'relatorios-admin']);
 
 export async function navigate(moduleName) {
     const appContainer = document.getElementById('app');
@@ -49,6 +49,16 @@ export async function navigate(moduleName) {
 export async function navigateAposLogin() {
     const tenant = await import('./modules/tenant.js');
 
+    const ativaId = tenant.empresaAtivaId();
+    const donoAtivo = tenant.donoEmpresaAtiva();   // ACTIVE_OWNER: admin "dentro" de empresa de outro
+
+    // Se estava dentro de uma empresa de outro utilizador (Modo Admin), manter
+    // ao recarregar a página — não o expulsar para a Administração.
+    if (ativaId && donoAtivo) {
+        await navigate('dashboard');
+        return;
+    }
+
     let empresas = [];
     try {
         empresas = await tenant.listarEmpresas();
@@ -56,23 +66,35 @@ export async function navigateAposLogin() {
         console.warn('[router] não foi possível listar empresas:', e);
     }
 
-    // Se a empresa "ativa" guardada já não pertence a este utilizador (ex.:
-    // sobra de uma sessão anterior ou de outra conta no mesmo browser), limpa-a
-    // para não entrar numa empresa errada.
-    const ativaId = tenant.empresaAtivaId();
+    // Limpa uma empresa "ativa" que já não pertence a este utilizador (sobra de
+    // outra sessão/conta no mesmo browser).
     const ativaValida = !!ativaId && empresas.some(e => e.id === ativaId);
-    if (ativaId && !ativaValida) tenant.limparEmpresaAtiva();
+    if (ativaId && !ativaValida && !donoAtivo) tenant.limparEmpresaAtiva();
 
+    // Recarregar mantém o utilizador na empresa onde estava.
     if (ativaValida) {
-        // Recarregar a página mantém o utilizador na empresa onde estava.
         await navigate('dashboard');
-    } else if (empresas.length === 1) {
+        return;
+    }
+
+    // Sem empresa ativa: o ADMINISTRADOR vai direto para a Administração (a sua
+    // visão global de todas as empresas), porque à partida não tem empresas
+    // próprias — gere todas a partir daí.
+    try {
+        if (await tenant.isAdmin()) {
+            await navigate('admin');
+            return;
+        }
+    } catch (e) {
+        console.warn('[router] verificação de admin falhou:', e);
+    }
+
+    if (empresas.length === 1) {
         // Uma única empresa: entra logo, sem obrigar a escolher.
         tenant.definirEmpresaAtiva(empresas[0].id);
         await navigate('dashboard');
     } else {
-        // Nenhuma (para criar a primeira) OU várias (para escolher qual usar):
-        // mostra sempre a lista "As Minhas Empresas".
+        // Nenhuma (para criar a primeira) OU várias (para escolher qual usar).
         await navigate('empresas');
     }
 }

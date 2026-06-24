@@ -39,6 +39,10 @@ export function render() {
                 </div>
             </div>
             <div style="display:flex;gap:10px;">
+                <button onclick="window.router.navigate('relatorios-admin')"
+                    style="background:var(--rh-accent);color:var(--rh-text);border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:bold;">
+                    📊 Relatórios
+                </button>
                 <button onclick="window.router.navigate('empresas')"
                     style="background:var(--rh-bg-muted);color:var(--rh-text);border:1px solid rgba(255,255,255,0.3);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;">
                     ← Voltar às Minhas Empresas
