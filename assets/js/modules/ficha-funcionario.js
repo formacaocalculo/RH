@@ -1,7 +1,7 @@
 // assets/js/modules/ficha-funcionario.js
 import { getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { calcularDireitoFerias, feriadosPortugal } from './ferias-utils.js';
-import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, definirContextoFuncionario, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB } from './colaborador-utils.js';
+import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, definirContextoFuncionario, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB, validarNIF } from './colaborador-utils.js';
 import { eliminarComBackup } from './seguranca-dados.js';
 import { docEmpresa } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
@@ -222,17 +222,23 @@ window._fichaGuardarPessoais = async function() {
     const nascimento = document.getElementById('ficha-pess-nascimento').value || null;
     const estadoCivil = document.getElementById('ficha-pess-estado-civil').value || null;
     const morada = document.getElementById('ficha-pess-morada').value.trim();
+    const codigoPostal = document.getElementById('ficha-pess-codigo-postal').value.trim();
+    const nacionalidade = document.getElementById('ficha-pess-nacionalidade').value.trim();
     const contacto = document.getElementById('ficha-pess-contacto').value.trim();
     const email = document.getElementById('ficha-pess-email').value.trim();
     const nib = document.getElementById('ficha-pess-nib').value.trim();
 
     if (!nome) { alert('O nome completo é obrigatório.'); return; }
-    if (!nif || !/^\d{9}$/.test(nif)) { alert('O NIF deve ter 9 dígitos.'); return; }
+    if (!validarNIF(nif)) {
+        alert('O NIF está errado. Verifique e introduza um NIF válido (9 dígitos, com dígito de controlo correto).');
+        document.getElementById('ficha-pess-nif').focus();
+        return;
+    }
 
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
         const nibValido = nib !== '' && validarNIB(nib);
-        const dadosPess = { nome, nif, nascimento, estadoCivil, morada, contacto, email, nib, nibValido };
+        const dadosPess = { nome, nif, nascimento, estadoCivil, morada, codigoPostal, nacionalidade, contacto, email, nib, nibValido };
         await updateDoc(docEmpresa('funcionarios', S.funcId), dadosPess);
         Object.assign(S.func, dadosPess);
         document.getElementById('ficha-titulo').textContent = S.func.nome || 'Colaborador';
@@ -258,6 +264,9 @@ window._fichaGuardarProfissionais = async function() {
     const subsidioRefeicaoDia = subDiaRaw === '' ? null : (parseFloat(subDiaRaw) || 0);
     const subsidioRefeicaoModo = document.getElementById('ficha-prof-subsidio-modo').value;
     const dataCessacao = document.getElementById('ficha-prof-cessacao').value || null;
+    const tipoContrato = document.getElementById('ficha-prof-tipo-contrato').value;
+    const dataFimContrato = (tipoContrato !== 'Sem termo' && document.getElementById('ficha-prof-fim-contrato').value) ? document.getElementById('ficha-prof-fim-contrato').value : null;
+    const motivoCessacao = document.getElementById('ficha-prof-motivo-cessacao').value || null;
     const categoriaIRS = document.getElementById('ficha-prof-irs').value;
     const taxaIRS = parseFloat(document.getElementById('ficha-prof-taxa-irs').value);
     const qualificacao = document.getElementById('ficha-prof-qualificacao').value || null;
@@ -266,7 +275,7 @@ window._fichaGuardarProfissionais = async function() {
 
     btn.textContent = 'A guardar…'; btn.disabled = true;
     try {
-        const dadosProf = { cargo, departamento, admissao, dataCessacao, salarioBase, subsidioRefeicaoDia, subsidioRefeicaoModo, categoriaIRS, taxaIRS: isNaN(taxaIRS) ? 0 : taxaIRS, qualificacao };
+        const dadosProf = { cargo, departamento, admissao, tipoContrato, dataFimContrato, dataCessacao, motivoCessacao, salarioBase, subsidioRefeicaoDia, subsidioRefeicaoModo, categoriaIRS, taxaIRS: isNaN(taxaIRS) ? 0 : taxaIRS, qualificacao };
         await updateDoc(docEmpresa('funcionarios', S.funcId), dadosProf);
         Object.assign(S.func, dadosProf);
         // O direito a férias depende da data de admissão: recalcula caso tenha mudado
@@ -381,6 +390,16 @@ export function render() {
                             style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
                     </div>
                     <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Código Postal</label>
+                        <input type="text" id="ficha-pess-codigo-postal" placeholder="0000-000 Localidade"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Nacionalidade</label>
+                        <input type="text" id="ficha-pess-nacionalidade" placeholder="ex.: Portuguesa"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div>
                         <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Contacto Telefónico</label>
                         <input type="text" id="ficha-pess-contacto" placeholder="9XX XXX XXX"
                             style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
@@ -485,10 +504,40 @@ export function render() {
                             style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
                     </div>
                     <div style="margin-bottom:10px;">
-                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Data de Cessação (se aplicável)</label>
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Tipo de Contrato</label>
+                        <select id="ficha-prof-tipo-contrato" style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;background:var(--rh-bg-card);">
+                            <option value="Sem termo">Sem termo</option>
+                            <option value="Termo certo">Termo certo</option>
+                            <option value="Termo incerto">Termo incerto</option>
+                            <option value="Estágio">Estágio</option>
+                            <option value="Prestação de serviços">Prestação de serviços</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Data de Fim de Contrato (se aplicável)</label>
+                        <input type="date" id="ficha-prof-fim-contrato"
+                            style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
+                        <small style="color:var(--rh-text-subtle);font-size:10px;">Fim previsto do contrato a termo/estágio (para alertas de renovação e relatórios de contratos a terminar).</small>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Data de Rescisão / Cessação (se aplicável)</label>
                         <input type="date" id="ficha-prof-cessacao"
                             style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;">
-                        <small style="color:var(--rh-text-subtle);font-size:10px;">Preenche para processar o último mês em proporção. Depois desse mês deixa de ser processado.</small>
+                        <small style="color:var(--rh-text-subtle);font-size:10px;">Saída efetiva. O último mês é processado em proporção; depois deixa de ser processado.</small>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Motivo da Rescisão / Cessação</label>
+                        <select id="ficha-prof-motivo-cessacao" style="width:100%;padding:8px;border:1px solid var(--rh-border);border-radius:5px;font-size:12px;box-sizing:border-box;background:var(--rh-bg-card);">
+                            <option value="">—</option>
+                            <option value="Acordo mútuo">Acordo mútuo</option>
+                            <option value="Caducidade">Caducidade (fim do termo)</option>
+                            <option value="Despedimento por iniciativa do trabalhador">Iniciativa do trabalhador</option>
+                            <option value="Despedimento por iniciativa da empresa">Iniciativa da empresa</option>
+                            <option value="Reforma">Reforma</option>
+                            <option value="Falecimento">Falecimento</option>
+                            <option value="Outro">Outro</option>
+                        </select>
                     </div>
                     <div style="margin-bottom:10px;">
                         <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--rh-text-subtle);">Salário Base Bruto (€)</label>
@@ -600,6 +649,9 @@ export async function init() {
     setVal('ficha-prof-cargo', S.func.cargo);
     setVal('ficha-prof-departamento', S.func.departamento);
     setVal('ficha-prof-admissao', S.func.admissao);
+    setVal('ficha-prof-tipo-contrato', S.func.tipoContrato || 'Sem termo');
+    setVal('ficha-prof-fim-contrato', S.func.dataFimContrato || '');
+    setVal('ficha-prof-motivo-cessacao', S.func.motivoCessacao || '');
     setVal('ficha-prof-salario', S.func.salarioBase);
     setVal('ficha-prof-subsidio-dia', S.func.subsidioRefeicaoDia ?? '');
     setVal('ficha-prof-subsidio-modo', S.func.subsidioRefeicaoModo || 'dinheiro');
@@ -625,6 +677,8 @@ export async function init() {
     setValPess('ficha-pess-nif', f.nif);
     setValPess('ficha-pess-nascimento', f.nascimento);
     setValPess('ficha-pess-morada', f.morada);
+    setValPess('ficha-pess-codigo-postal', f.codigoPostal);
+    setValPess('ficha-pess-nacionalidade', f.nacionalidade);
     setValPess('ficha-pess-contacto', f.contacto);
     setValPess('ficha-pess-email', f.email);
     setValPess('ficha-pess-nib', f.nib);

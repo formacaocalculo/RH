@@ -179,7 +179,7 @@ window._recibosGerarPDF = async function(procId, funcId) {
 
     linhaTabela(`Vencimento Base (${(linha.diasUteisAtivos ?? linha.diasUteisMes) - linha.diasDesconto}/${linha.diasUteisMes} dias úteis)`, fmt(linha.vencimentoBase));
     if (linha.valorHorasExtra > 0) linhaTabela(`Horas Suplementares (${linha.horasExtra}h)`, fmt(linha.valorHorasExtra));
-    if (!linha.subsidioEmCartao) linhaTabela('Subsídio de Refeição', fmt(linha.subsidioRefeicao));
+    if (!linha.subsidioEmCartao) linhaTabela(`Subsídio de Refeição${linha.diasComSubsidio !== undefined ? ` (${linha.diasComSubsidio} dias)` : ''}`, fmt(linha.subsidioRefeicao));
     y += 2;
     doc.line(14, y, 196, y);
     y += 7;
@@ -192,7 +192,7 @@ window._recibosGerarPDF = async function(procId, funcId) {
 
     if (linha.subsidioEmCartao && linha.subsidioRefeicao > 0) {
         y += 8;
-        linhaTabela('Subsídio de Refeição (pago em cartão, à parte)', fmt(linha.subsidioRefeicao));
+        linhaTabela(`Subsídio de Refeição (pago em cartão, à parte)${linha.diasComSubsidio !== undefined ? ` — ${linha.diasComSubsidio} dias` : ''}`, fmt(linha.subsidioRefeicao));
     }
 
     y += 14;

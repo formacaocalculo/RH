@@ -22,6 +22,7 @@ export function render() {
 
             <!-- Alertas NIB em falta -->
             <div id="alertas-nib" style="margin-bottom: 20px;"></div>
+            <div id="alertas-contratos" style="margin-bottom: 20px;"></div>
 
             <div class="cards-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
                 <div style="background: var(--rh-bg-card); padding: 20px; border-radius: 12px; border-top: 4px solid var(--rh-primary); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
@@ -83,7 +84,44 @@ export async function init() {
     if (nomeEl) nomeEl.textContent = emp ? emp.nome : '';
 
     await _carregarAlertas();
+    await _carregarAlertasContratos();
     await _carregarKPIs();
+}
+
+const DIAS_ALERTA_CONTRATO = 60; // antecedência por omissão
+
+async function _carregarAlertasContratos() {
+    const container = document.getElementById('alertas-contratos');
+    if (!container) return;
+    try {
+        const snap = await getDocs(colEmpresa('funcionarios'));
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        const limite = new Date(hoje.getTime() + DIAS_ALERTA_CONTRATO * 864e5);
+        let aTerminar = 0, expirados = 0;
+        snap.forEach(d => {
+            const f = d.data();
+            if (f.ativo === false || f.dataCessacao) return;      // já saiu
+            if (!f.dataFimContrato) return;                       // sem termo / sem fim previsto
+            const fim = new Date(f.dataFimContrato + 'T00:00:00');
+            if (fim < hoje) expirados++;
+            else if (fim <= limite) aTerminar++;
+        });
+        const total = aTerminar + expirados;
+        if (!total) { container.innerHTML = ''; return; }
+        const partes = [];
+        if (aTerminar) partes.push(`${aTerminar} a terminar nos próximos ${DIAS_ALERTA_CONTRATO} dias`);
+        if (expirados) partes.push(`${expirados} já terminado(s) sem cessação registada`);
+        container.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--rh-warning-bg); border:1px solid var(--rh-warning); border-radius:8px; padding:12px 18px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px;">📑</span>
+                    <span style="color:var(--rh-warning-text); font-size:14px;">${total} contrato(s) a precisar de atenção (${esc(partes.join(' · '))}).</span>
+                </div>
+                <button onclick="window.router.navigate('contratos-terminar')" style="background:var(--rh-warning); color:var(--rh-bg-card); border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold; white-space:nowrap; margin-left:16px;">
+                    Ver relatório
+                </button>
+            </div>`;
+    } catch (e) { console.warn('Erro ao carregar alertas de contratos:', e); }
 }
 
 async function _carregarAlertas() {

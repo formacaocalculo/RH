@@ -1,6 +1,6 @@
 // assets/js/modules/criar-funcionario.js
 import { addDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB } from './colaborador-utils.js';
+import { renderHorarioTrabalho, lerHorarioTrabalhoDoForm, renderFilhosSection, inicializarFilhosState, obterFilhosState, renderSelectQualificacao, renderSelectEstadoCivil, validarNIB, validarNIF } from './colaborador-utils.js';
 import { colEmpresa, docEmpresa } from './tenant.js';
 import { renderSidebarHTML, initSidebar } from './sidebar.js';
 
@@ -36,7 +36,7 @@ export function render() {
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">NIF *</label>
                         <input type="text" id="func-nif" maxlength="9" placeholder="9 dígitos" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
-                        <small id="nif-erro" style="color:var(--rh-danger); font-size:12px; display:none;">NIF inválido (deve ter 9 dígitos numéricos).</small>
+                        <small id="nif-erro" style="color:var(--rh-danger); font-size:12px; display:none;">O NIF está errado. Verifique e introduza um NIF válido (9 dígitos, com dígito de controlo correto).</small>
                     </div>
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Data de Nascimento</label>
@@ -49,6 +49,14 @@ export function render() {
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Morada</label>
                         <input type="text" id="func-morada" placeholder="Rua, número, localidade" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Código Postal</label>
+                        <input type="text" id="func-codigo-postal" placeholder="0000-000 Localidade" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Nacionalidade</label>
+                        <input type="text" id="func-nacionalidade" placeholder="ex.: Portuguesa" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
                     </div>
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Contacto Telefónico</label>
@@ -81,13 +89,29 @@ export function render() {
                         <input type="date" id="func-admissao" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
                     </div>
                     <div style="margin-bottom: 14px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Tipo de Contrato</label>
+                        <select id="func-tipo-contrato" onchange="window._funcToggleFim && window._funcToggleFim()" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px; background:var(--rh-bg-card);">
+                            <option value="Sem termo">Sem termo</option>
+                            <option value="Termo certo">Termo certo</option>
+                            <option value="Termo incerto">Termo incerto</option>
+                            <option value="Estágio">Estágio</option>
+                            <option value="Prestação de serviços">Prestação de serviços</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div id="func-fim-contrato-wrap" style="margin-bottom: 14px; display:none;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Data de Fim de Contrato</label>
+                        <input type="date" id="func-fim-contrato" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
+                        <small style="color:var(--rh-text-subtle); font-size:11px;">Fim previsto do contrato (para contratos a termo/estágio). Permite alertas de renovação e relatórios de contratos a terminar.</small>
+                    </div>
+                    <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Salário Base Bruto (€) *</label>
                         <input type="number" id="func-salario" min="0" step="0.01" placeholder="0.00" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
                     </div>
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Subsídio de Refeição (€/dia)</label>
                         <input type="number" id="func-subsidio-dia" min="0" step="0.01" placeholder="Vazio = usa o valor da empresa" style="width:100%; padding:10px; border:1px solid var(--rh-border); border-radius:6px; box-sizing:border-box; font-size:14px;">
-                        <small style="color:var(--rh-text-subtle); font-size:11px;">Deixe vazio para usar o valor definido na Parametrização da empresa.</small>
+                        <small id="func-subsidio-ajuda" style="color:var(--rh-text-subtle); font-size:11px;">Deixe vazio para usar o valor definido na Parametrização da empresa.</small>
                     </div>
                     <div style="margin-bottom: 14px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500; color:var(--rh-text-muted); font-size:13px;">Forma de pagamento do subsídio</label>
@@ -172,11 +196,7 @@ export function render() {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function validarNIF(nif) {
-    return /^\d{9}$/.test(nif);
-}
-
-// validarNIB importado de colaborador-utils.js (partilhado com a ficha do colaborador)
+// validarNIF e validarNIB importados de colaborador-utils.js (partilhados com a ficha)
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -313,8 +333,22 @@ export async function init() {
             // actualizar label limite
             const ll = document.getElementById('ferias-limite-label');
             if (ll) ll.textContent = ` / ${_calState.limiteFerias} dias selecionados`;
+            // Mostra o valor atual da empresa no texto de ajuda do subsídio
+            const subAjuda = document.getElementById('func-subsidio-ajuda');
+            if (subAjuda) {
+                const v = Number(dados.subsidioRefeicao || 0);
+                subAjuda.textContent = `Deixe vazio para usar o valor da empresa (atualmente ${v.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}/dia). Defina-o na Parametrização se estiver a 0.`;
+            }
         }
     } catch (e) { console.warn('Não foi possível carregar parâmetros:', e); }
+
+    // Mostrar/ocultar a data de fim de contrato conforme o tipo
+    window._funcToggleFim = function() {
+        const tipo = document.getElementById('func-tipo-contrato')?.value;
+        const wrap = document.getElementById('func-fim-contrato-wrap');
+        if (wrap) wrap.style.display = (tipo && tipo !== 'Sem termo') ? 'block' : 'none';
+    };
+    window._funcToggleFim();
 
     _renderCalendario();
 
@@ -371,6 +405,8 @@ export async function init() {
             nib: nib || null,
             nibValido,
             morada:       document.getElementById('func-morada').value.trim(),
+            codigoPostal: document.getElementById('func-codigo-postal').value.trim(),
+            nacionalidade: document.getElementById('func-nacionalidade').value.trim(),
             contacto:     document.getElementById('func-contacto').value.trim(),
             email:        document.getElementById('func-email').value.trim(),
             nascimento:   document.getElementById('func-nascimento').value || null,
@@ -378,6 +414,8 @@ export async function init() {
             cargo:        document.getElementById('func-cargo').value.trim(),
             departamento: document.getElementById('func-departamento').value.trim(),
             admissao,
+            tipoContrato: document.getElementById('func-tipo-contrato').value,
+            dataFimContrato: (document.getElementById('func-tipo-contrato').value !== 'Sem termo' && document.getElementById('func-fim-contrato').value) ? document.getElementById('func-fim-contrato').value : null,
             salarioBase:  salario,
             subsidioRefeicaoDia: (document.getElementById('func-subsidio-dia').value === '' ? null : parseFloat(document.getElementById('func-subsidio-dia').value)),
             subsidioRefeicaoModo: document.getElementById('func-subsidio-modo').value,

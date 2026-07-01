@@ -11,6 +11,7 @@ const NAV_ITEMS = [
     { rota: 'dashboard',         icone: '📊', label: 'Dashboard',          secao: 'Principal' },
     { rota: 'funcionarios',      icone: '👥', label: 'Colaboradores',      secao: 'Gestão' },
     { rota: 'criar-funcionario', icone: '➕', label: 'Novo Funcionário',   secao: 'Gestão' },
+    { rota: 'documentos',        icone: '📁', label: 'Documentos',         secao: 'Gestão' },
     { rota: 'assiduidade',       icone: '📅', label: 'Assiduidade',        secao: 'Gestão' },
     { rota: 'registo-horas',     icone: '⏱️', label: 'Registo de Horas',   secao: 'Gestão' },
     { rota: 'processamento',     icone: '💶', label: 'Processamento',      secao: 'Gestão' },
@@ -18,6 +19,10 @@ const NAV_ITEMS = [
     { rota: 'mapa-ferias',          icone: '🏖️', label: 'Mapa de Férias',        secao: 'Relatórios' },
     { rota: 'mapa-assiduidade',     icone: '📈', label: 'Mapa de Assiduidade',   secao: 'Relatórios' },
     { rota: 'listagem-vencimentos', icone: '💶', label: 'Vencimentos',           secao: 'Relatórios' },
+    { rota: 'declaracoes',          icone: '🧾', label: 'Declaração de Rendimentos', secao: 'Relatórios' },
+    { rota: 'contratos-terminar',   icone: '📑', label: 'Contratos a Terminar',  secao: 'Relatórios' },
+    { rota: 'avaliacoes',        icone: '⭐', label: 'Avaliações',          secao: 'Desenvolvimento' },
+    { rota: 'formacao',          icone: '🎓', label: 'Formação',            secao: 'Desenvolvimento' },
     { rota: 'parametrizacao',    icone: '⚙️', label: 'Parametrização',     secao: 'Configurações' },
     { rota: 'lixeira',           icone: '🗑️', label: 'Lixo / Repor Dados', secao: 'Configurações' },
 ];

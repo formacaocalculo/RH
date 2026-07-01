@@ -53,6 +53,21 @@ export function renderSelectEstadoCivil(id, valorAtual = '') {
 
 // ─── Validação de NIB / IBAN ────────────────────────────────────────────────
 // Aceita NIB português (21 dígitos) ou IBAN PT (25 chars: PT50 + 21 dígitos)
+// Valida o NIF português pelo dígito de controlo (módulo 11). Nota: o NIF NÃO
+// usa o algoritmo de Luhn (esse é para cartões de crédito); usa um checksum próprio.
+export function validarNIF(nif) {
+    nif = String(nif || '').replace(/\s/g, '');
+    if (!/^\d{9}$/.test(nif)) return false;
+    const inicios1 = ['1', '2', '3', '5', '6', '8', '9'];
+    const inicios2 = ['45', '70', '71', '72', '74', '75', '77', '78', '79', '90', '91', '98', '99'];
+    if (!inicios1.includes(nif[0]) && !inicios2.includes(nif.slice(0, 2))) return false;
+    let soma = 0;
+    for (let i = 0; i < 8; i++) soma += Number(nif[i]) * (9 - i);
+    let controlo = 11 - (soma % 11);
+    if (controlo >= 10) controlo = 0;
+    return controlo === Number(nif[8]);
+}
+
 export function validarNIB(nib) {
     if (!nib) return false;
     const clean = nib.replace(/\s/g, '');

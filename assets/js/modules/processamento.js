@@ -164,6 +164,24 @@ function diasSemSubsidioPorFaltaParcial(func, ausencias, diasComFaltaParcial) {
     return semSubsidio;
 }
 
+// Dias úteis de férias do colaborador dentro do mês (não recebem subsídio de
+// refeição). As férias estão no calendário do colaborador (diasFerias/diasGozados),
+// não nas ausências.
+function diasUteisFeriasNoMes(func, ano, mes) {
+    const set = new Set([...(func.diasFerias || []), ...(func.diasGozados || [])]);
+    const pref = `${ano}-${String(mes + 1).padStart(2, '0')}`;
+    let n = 0;
+    set.forEach(ds => {
+        if (!ds || !ds.startsWith(pref)) return;
+        if (func.admissao && ds < func.admissao) return;
+        if (func.dataCessacao && ds > func.dataCessacao) return;
+        const wd = new Date(ds + 'T00:00:00').getDay();
+        if (wd === 0 || wd === 6) return; // só dias úteis
+        n++;
+    });
+    return n;
+}
+
 // ─── Cálculo do processamento ───────────────────────────────────────────────
 async function calcularLinha(func, ano, mes, diasUteisMes) {
     let ausencias = [];
@@ -181,7 +199,9 @@ async function calcularLinha(func, ano, mes, diasUteisMes) {
     const proporcao = diasUteisMes > 0 ? Math.max(diasUteisAtivos - diasDesconto, 0) / diasUteisMes : 1;
     const vencimentoBase = Math.round(salarioBase * proporcao * 100) / 100;
 
-    const diasComSubsidio = Math.max(diasUteisAtivos - diasDesconto - semSubsidioParcial, 0);
+    // Dias de férias do mês não recebem subsídio de refeição.
+    const diasFeriasMes = diasUteisFeriasNoMes(func, ano, mes);
+    const diasComSubsidio = Math.max(diasUteisAtivos - diasDesconto - semSubsidioParcial - diasFeriasMes, 0);
     // Subsídio de refeição: valor/dia por colaborador (func.subsidioRefeicaoDia)
     // com recuo ao valor da empresa (Parametrização).
     const valorSubDia = (func.subsidioRefeicaoDia !== undefined && func.subsidioRefeicaoDia !== null && func.subsidioRefeicaoDia !== '')
@@ -232,6 +252,8 @@ async function calcularLinha(func, ano, mes, diasUteisMes) {
         diasUteisMes,
         diasUteisAtivos,
         diasDesconto,
+        diasFeriasMes,
+        diasComSubsidio,
         vencimentoBase,
         horasExtra,
         valorHora: Math.round(valorHora * 100) / 100,

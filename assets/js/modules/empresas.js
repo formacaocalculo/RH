@@ -8,6 +8,7 @@ import {
     listarEmpresas, criarEmpresa, editarEmpresa, definirEmpresaAtiva, isAdmin, eliminarEmpresa
 } from './tenant.js';
 import { pedirReautenticacao } from './seguranca-dados.js';
+import { validarNIF } from './colaborador-utils.js';
 import { esc, escAttr } from './html-utils.js';
 
 let S = { empresas: [], souAdmin: false, aEditarId: null };
@@ -62,6 +63,11 @@ export function render() {
                     <div>
                         <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Morada</label>
                         <input type="text" id="emp-morada" placeholder="Rua, número, localidade"
+                            style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--rh-text-muted);">Código Postal</label>
+                        <input type="text" id="emp-codigo-postal" placeholder="0000-000 Localidade"
                             style="width:100%;padding:9px;border:1px solid var(--rh-border);border-radius:6px;font-size:13px;box-sizing:border-box;">
                     </div>
                 </div>
@@ -128,7 +134,7 @@ window._empresasMostrarForm = function(mostrar = true) {
         S.aEditarId = null;
         document.getElementById('form-empresa-titulo').textContent = 'Nova Empresa';
         document.getElementById('btn-guardar-empresa').textContent = '💾 Guardar';
-        ['emp-nome', 'emp-nif', 'emp-morada'].forEach(id => { document.getElementById(id).value = ''; });
+        ['emp-nome', 'emp-nif', 'emp-morada', 'emp-codigo-postal'].forEach(id => { document.getElementById(id).value = ''; });
     }
 };
 
@@ -141,6 +147,7 @@ window._empresasEditar = function(empresaId) {
     document.getElementById('emp-nome').value = emp.nome || '';
     document.getElementById('emp-nif').value = emp.nif || '';
     document.getElementById('emp-morada').value = emp.morada || '';
+    document.getElementById('emp-codigo-postal').value = emp.codigoPostal || '';
     document.getElementById('form-empresa').style.display = 'block';
     document.getElementById('form-empresa').scrollIntoView?.({ behavior: 'smooth', block: 'center' });
 };
@@ -149,13 +156,19 @@ window._empresasGuardar = async function() {
     const nome = document.getElementById('emp-nome').value.trim();
     const nif = document.getElementById('emp-nif').value.trim();
     const morada = document.getElementById('emp-morada').value.trim();
+    const codigoPostal = document.getElementById('emp-codigo-postal').value.trim();
     if (!nome) { alert('O nome da empresa é obrigatório.'); return; }
+    if (nif && !validarNIF(nif)) {
+        alert('O NIF da empresa está errado. Verifique e introduza um NIF válido (9 dígitos, com dígito de controlo correto).');
+        document.getElementById('emp-nif').focus();
+        return;
+    }
 
     try {
         if (S.aEditarId) {
-            await editarEmpresa(S.aEditarId, { nome, nif, morada });
+            await editarEmpresa(S.aEditarId, { nome, nif, morada, codigoPostal });
         } else {
-            await criarEmpresa({ nome, nif, morada });
+            await criarEmpresa({ nome, nif, morada, codigoPostal });
         }
         window._empresasMostrarForm(false);
         await carregar();

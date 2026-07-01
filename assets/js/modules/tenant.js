@@ -183,6 +183,7 @@ export async function criarEmpresa(dados) {
         nome: dados.nome,
         nif: dados.nif || '',
         morada: dados.morada || '',
+        codigoPostal: dados.codigoPostal || '',
         criadoEm: new Date().toISOString(),
         ativa: true,
     };
